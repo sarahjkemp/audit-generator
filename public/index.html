@@ -23,11 +23,10 @@
     align-items: center;
     justify-content: space-between;
   }
-
-  header h1 { font-size: 14px; font-weight: 600; letter-spacing: 0.01em; }
+  header h1 { font-size: 14px; font-weight: 600; }
   header span { font-size: 12px; color: #666; }
 
-  .container { max-width: 860px; margin: 0 auto; padding: 36px 20px 60px; }
+  .container { max-width: 780px; margin: 0 auto; padding: 36px 20px 60px; }
 
   .section {
     background: #fff;
@@ -49,18 +48,13 @@
   }
 
   .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
-  .grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 16px; margin-bottom: 16px; }
-  .grid-1 { display: grid; grid-template-columns: 1fr; gap: 16px; margin-bottom: 16px; }
-  .grid-1:last-child, .grid-2:last-child, .grid-4:last-child { margin-bottom: 0; }
+  .grid-1 { display: grid; grid-template-columns: 1fr; margin-bottom: 16px; }
+  .grid-2:last-child, .grid-1:last-child { margin-bottom: 0; }
 
   .field { display: flex; flex-direction: column; gap: 5px; }
-
   label { font-size: 12px; font-weight: 600; color: #555; }
 
-  input[type="text"],
-  input[type="number"],
-  textarea,
-  select {
+  input[type="text"], textarea, select {
     border: 1px solid #ddd;
     border-radius: 7px;
     padding: 9px 12px;
@@ -78,10 +72,45 @@
     background: #fff;
   }
 
-  textarea { resize: vertical; min-height: 96px; line-height: 1.5; }
-  textarea.tall { min-height: 130px; }
+  textarea { resize: vertical; min-height: 110px; line-height: 1.5; }
 
   .hint { font-size: 11px; color: #aaa; margin-top: 3px; }
+
+  /* PDF upload */
+  .upload-zone {
+    border: 2px dashed #ddd;
+    border-radius: 8px;
+    padding: 28px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+    position: relative;
+    background: #fafaf9;
+  }
+
+  .upload-zone:hover, .upload-zone.dragover {
+    border-color: #111;
+    background: #f5f5f3;
+  }
+
+  .upload-zone.has-file {
+    border-color: #2a9d5c;
+    background: #f0faf5;
+  }
+
+  .upload-zone input[type="file"] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    width: 100%;
+    height: 100%;
+  }
+
+  .upload-icon { font-size: 28px; margin-bottom: 8px; }
+  .upload-label { font-size: 14px; font-weight: 600; color: #444; margin-bottom: 4px; }
+  .upload-sub { font-size: 12px; color: #999; }
+  .upload-filename { font-size: 13px; font-weight: 600; color: #2a9d5c; margin-top: 6px; }
 
   .generate-btn {
     display: block;
@@ -132,7 +161,6 @@
   }
 
   .output-label { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #888; }
-
   .btn-row { display: flex; gap: 8px; }
 
   .copy-btn, .new-btn {
@@ -148,21 +176,29 @@
 
   .copy-btn { background: #f0f0ee; color: #1a1a1a; }
   .copy-btn:hover { background: #e4e4e2; }
-
   .new-btn { background: #111; color: #fff; }
   .new-btn:hover { background: #2a2a2a; }
 
-  .loading { text-align: center; padding: 48px 0; color: #888; font-size: 14px; }
+  .loading {
+    text-align: center;
+    padding: 48px 0;
+    color: #888;
+    font-size: 14px;
+    line-height: 1.7;
+  }
 
-  .loading-dot {
+  .spinner {
     display: inline-block;
-    animation: pulse 1.4s infinite;
+    width: 20px;
+    height: 20px;
+    border: 2px solid #e0e0e0;
+    border-top-color: #111;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-bottom: 14px;
   }
 
-  @keyframes pulse {
-    0%, 100% { opacity: 0.3; }
-    50% { opacity: 1; }
-  }
+  @keyframes spin { to { transform: rotate(360deg); } }
 
   /* Report styles */
   .report h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
@@ -170,7 +206,6 @@
     font-size: 17px;
     font-weight: 700;
     margin: 32px 0 10px;
-    color: #111;
     padding-top: 28px;
     border-top: 1px solid #f0f0ee;
   }
@@ -182,12 +217,11 @@
   .report em { color: #888; font-style: italic; }
   .report hr { border: none; border-top: 1px solid #f0f0ee; margin: 24px 0; }
 
-  @media (max-width: 640px) {
-    .grid-2, .grid-4 { grid-template-columns: 1fr; }
+  @media (max-width: 600px) {
+    .grid-2 { grid-template-columns: 1fr; }
     header { padding: 16px 20px; }
     .section { padding: 22px 20px; }
-    .output-wrap { padding: 28px 22px; }
-    .container { padding: 24px 16px 48px; }
+    .output-wrap { padding: 28px 20px; }
   }
 </style>
 </head>
@@ -195,7 +229,7 @@
 
 <header>
   <h1>AI Visibility & Narrative Audit Generator</h1>
-  <span>SJK Labs · Internal use only</span>
+  <span>SJK Labs · Internal</span>
 </header>
 
 <div class="container">
@@ -210,133 +244,49 @@
       <div class="field">
         <label>Website</label>
         <input type="text" id="website" placeholder="e.g. doxis.com">
+        <span class="hint">Homepage will be fetched automatically</span>
       </div>
     </div>
     <div class="grid-1">
       <div class="field">
-        <label>What they do / Industry</label>
-        <input type="text" id="industry" placeholder="e.g. Enterprise document management software, B2B, serves large corporates across Europe">
+        <label>What they do</label>
+        <input type="text" id="industry" placeholder="e.g. Enterprise document management software, B2B, sells to large corporates across Europe">
       </div>
     </div>
   </div>
 
   <div class="section">
-    <div class="section-label">Semrush AI Visibility Data</div>
-    <div class="grid-4">
-      <div class="field">
-        <label>AI Visibility (/100)</label>
-        <input type="number" id="aiScore" placeholder="14">
-      </div>
-      <div class="field">
-        <label>Mentions</label>
-        <input type="number" id="mentions" placeholder="3">
-      </div>
-      <div class="field">
-        <label>Citations</label>
-        <input type="number" id="citations" placeholder="26">
-      </div>
-      <div class="field">
-        <label>Cited Pages</label>
-        <input type="number" id="citedPages" placeholder="21">
-      </div>
+    <div class="section-label">Semrush Report</div>
+    <div class="upload-zone" id="uploadZone">
+      <input type="file" id="pdfFile" accept=".pdf" onchange="handleFile(this)">
+      <div class="upload-icon">📄</div>
+      <div class="upload-label">Upload Semrush PDF</div>
+      <div class="upload-sub">Click to browse or drag and drop</div>
+      <div class="upload-filename" id="fileName"></div>
     </div>
+  </div>
+
+  <div class="section">
+    <div class="section-label">Your Observations</div>
     <div class="grid-1">
       <div class="field">
-        <label>Monthly AI Audience</label>
-        <input type="text" id="monthlyAudience" placeholder="e.g. 4.92K">
+        <label>Strategic notes</label>
+        <textarea id="yourNotes" placeholder="What have you noticed? What's the real problem underneath the data? What can you see that they can't? Any context about the competitive landscape, their messaging, their spokesperson presence — anything that should shape the report."></textarea>
+        <span class="hint">This is your expert layer. The more you give, the sharper the report.</span>
       </div>
     </div>
   </div>
 
   <div class="section">
-    <div class="section-label">Platform Visibility Scores</div>
-    <div class="grid-4">
-      <div class="field">
-        <label>ChatGPT</label>
-        <input type="number" id="chatgpt" placeholder="14">
-      </div>
-      <div class="field">
-        <label>AI Overview</label>
-        <input type="number" id="aiOverview" placeholder="14">
-      </div>
-      <div class="field">
-        <label>Gemini</label>
-        <input type="number" id="gemini" placeholder="14">
-      </div>
-      <div class="field">
-        <label>AI Mode</label>
-        <input type="number" id="aiMode" placeholder="0">
-      </div>
-    </div>
-  </div>
-
-  <div class="section">
-    <div class="section-label">Topics & Prompts — paste from Semrush</div>
+    <div class="section-label">Recommended Next Step</div>
     <div class="grid-1">
       <div class="field">
-        <label>Your Performing Topics</label>
-        <textarea id="performingTopics" class="tall" placeholder="Paste from the 'Your Performing Topics' table — topic name, visibility score, your mentions, AI volume."></textarea>
-        <span class="hint">Copy directly from Semrush. Rough paste is fine.</span>
-      </div>
-    </div>
-    <div class="grid-1">
-      <div class="field">
-        <label>Your Performing Prompts</label>
-        <textarea id="performingPrompts" placeholder="Paste from the 'Your Performing Prompts' table — prompt, platform, mentioned/not."></textarea>
-      </div>
-    </div>
-    <div class="grid-1">
-      <div class="field">
-        <label>Topic Opportunities (where competitors appear, client doesn't)</label>
-        <textarea id="topicOpportunities" class="tall" placeholder="Paste from the 'Topic Opportunities' table — topic, competitors mentioned, AI volume."></textarea>
-      </div>
-    </div>
-  </div>
-
-  <div class="section">
-    <div class="section-label">Your Narrative Observations</div>
-    <div class="grid-1">
-      <div class="field">
-        <label>Website / Homepage — what is it primarily saying?</label>
-        <textarea id="websiteNotes" class="tall" placeholder="What story does the homepage tell? What's the main claim? Is the positioning clear? What's buried, missing, or contradictory?"></textarea>
-      </div>
-    </div>
-    <div class="grid-1">
-      <div class="field">
-        <label>Spokesperson / Founder — public presence</label>
-        <textarea id="spokespersonNotes" placeholder="Is there a founder or spokesperson with visible authority? What are they saying publicly? LinkedIn, press, interviews?"></textarea>
-      </div>
-    </div>
-    <div class="grid-1">
-      <div class="field">
-        <label>Owned Channels — LinkedIn, Substack, blog, podcast etc.</label>
-        <textarea id="channelsNotes" placeholder="Which channels exist? What's the content quality and consistency? Does it reinforce the website narrative, or go its own way?"></textarea>
-      </div>
-    </div>
-    <div class="grid-1">
-      <div class="field">
-        <label>Your Strategic Read</label>
-        <textarea id="strategicNotes" class="tall" placeholder="What's the real problem underneath all of this? What did you notice that the client can't see about themselves? This is your expert layer."></textarea>
-      </div>
-    </div>
-    <div class="grid-1">
-      <div class="field">
-        <label>Industry / Context Notes (optional)</label>
-        <textarea id="industryContext" placeholder="Competitive landscape, market dynamics, anything that shapes how to read the data."></textarea>
-      </div>
-    </div>
-  </div>
-
-  <div class="section">
-    <div class="section-label">Next Step Recommendation</div>
-    <div class="grid-1">
-      <div class="field">
-        <label>What's the right next engagement for this client?</label>
+        <label>What's the right next engagement?</label>
         <select id="nextStep">
-          <option value="Narrative Development (£12,000 · 4 weeks) — to fix the underlying positioning and messaging before investing further in visibility">Narrative Development — fix the story first (£12K)</option>
-          <option value="Authority Building (£6,500/month · 6-month minimum) — to compound visibility now that the narrative is clear enough">Authority Building — compound visibility now (£6.5K/month)</option>
-          <option value="Narrative Development first (£12,000) to fix the story, then Authority Building (£6,500/month) to compound it">Both: Narrative Development, then Authority Building</option>
-          <option value="More diagnostic work is needed before committing to an execution path. Consider The Scriptwriter Test™ (£3,000 · 5 days) to interrogate the messaging at a deeper level">More diagnostic work first — Scriptwriter Test™ (£3K)</option>
+          <option value="Narrative Development (£12,000 · 4 weeks) — to fix the underlying positioning and messaging before investing further in visibility">Narrative Development — fix the story first (£12K · 4 weeks)</option>
+          <option value="Authority Building (£6,500/month · 6-month minimum) — to compound visibility now the narrative is clear enough">Authority Building — compound visibility now (£6.5K/month)</option>
+          <option value="Narrative Development first (£12,000 · 4 weeks) to fix the story, then Authority Building (£6,500/month) to compound it">Both: Narrative Development, then Authority Building</option>
+          <option value="The Scriptwriter Test™ (£3,000 · 5 days) — more diagnostic work is needed before committing to an execution path">More diagnostic work first — The Scriptwriter Test™ (£3K)</option>
         </select>
       </div>
     </div>
@@ -355,7 +305,9 @@
       </div>
     </div>
     <div class="loading" id="loadingMsg">
-      <span class="loading-dot">Generating your audit report</span>&nbsp;— this takes about 30 seconds.
+      <div class="spinner"></div><br>
+      Reading the Semrush report and fetching their website…<br>
+      <span style="color:#bbb;font-size:13px;">This takes about 30–40 seconds.</span>
     </div>
     <div class="report" id="reportContent"></div>
   </div>
@@ -365,13 +317,39 @@
 <script>
 let rawMarkdown = '';
 
+function handleFile(input) {
+  const file = input.files[0];
+  const zone = document.getElementById('uploadZone');
+  const label = document.getElementById('fileName');
+  if (file) {
+    zone.classList.add('has-file');
+    label.textContent = file.name;
+  } else {
+    zone.classList.remove('has-file');
+    label.textContent = '';
+  }
+}
+
+// Drag and drop
+const zone = document.getElementById('uploadZone');
+zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+zone.addEventListener('drop', e => {
+  e.preventDefault();
+  zone.classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file && file.type === 'application/pdf') {
+    document.getElementById('pdfFile').files = e.dataTransfer.files;
+    handleFile(document.getElementById('pdfFile'));
+  }
+});
+
 async function generateReport() {
   const clientName = document.getElementById('clientName').value.trim();
-  if (!clientName) {
-    alert('Please enter the client name to continue.');
-    document.getElementById('clientName').focus();
-    return;
-  }
+  const pdfFile = document.getElementById('pdfFile').files[0];
+
+  if (!clientName) { alert('Please enter the client name.'); return; }
+  if (!pdfFile) { alert('Please upload the Semrush PDF.'); return; }
 
   const btn = document.getElementById('generateBtn');
   const outputWrap = document.getElementById('outputWrap');
@@ -385,47 +363,23 @@ async function generateReport() {
   reportContent.innerHTML = '';
   loadingMsg.style.display = 'block';
   outputWrap.style.display = 'block';
-
   setTimeout(() => outputWrap.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
 
-  const payload = {
-    clientName,
-    website:            document.getElementById('website').value.trim(),
-    industry:           document.getElementById('industry').value.trim(),
-    aiScore:            document.getElementById('aiScore').value,
-    mentions:           document.getElementById('mentions').value,
-    citations:          document.getElementById('citations').value,
-    citedPages:         document.getElementById('citedPages').value,
-    monthlyAudience:    document.getElementById('monthlyAudience').value.trim(),
-    chatgpt:            document.getElementById('chatgpt').value,
-    aiOverview:         document.getElementById('aiOverview').value,
-    gemini:             document.getElementById('gemini').value,
-    aiMode:             document.getElementById('aiMode').value,
-    performingTopics:   document.getElementById('performingTopics').value.trim(),
-    performingPrompts:  document.getElementById('performingPrompts').value.trim(),
-    topicOpportunities: document.getElementById('topicOpportunities').value.trim(),
-    websiteNotes:       document.getElementById('websiteNotes').value.trim(),
-    spokespersonNotes:  document.getElementById('spokespersonNotes').value.trim(),
-    channelsNotes:      document.getElementById('channelsNotes').value.trim(),
-    strategicNotes:     document.getElementById('strategicNotes').value.trim(),
-    industryContext:    document.getElementById('industryContext').value.trim(),
-    nextStep:           document.getElementById('nextStep').value,
-  };
+  const formData = new FormData();
+  formData.append('clientName', clientName);
+  formData.append('website', document.getElementById('website').value.trim());
+  formData.append('industry', document.getElementById('industry').value.trim());
+  formData.append('yourNotes', document.getElementById('yourNotes').value.trim());
+  formData.append('nextStep', document.getElementById('nextStep').value);
+  formData.append('semrushPdf', pdfFile);
 
   try {
-    const res = await fetch('/generate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-
+    const res = await fetch('/generate', { method: 'POST', body: formData });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Something went wrong.');
-
     rawMarkdown = data.report;
     loadingMsg.style.display = 'none';
     reportContent.innerHTML = marked.parse(rawMarkdown);
-
   } catch (err) {
     loadingMsg.style.display = 'none';
     outputWrap.style.display = 'none';
@@ -441,9 +395,8 @@ function copyReport() {
   if (!rawMarkdown) return;
   navigator.clipboard.writeText(rawMarkdown).then(() => {
     const btn = document.querySelector('.copy-btn');
-    const original = btn.textContent;
     btn.textContent = 'Copied!';
-    setTimeout(() => btn.textContent = original, 2000);
+    setTimeout(() => btn.textContent = 'Copy as Markdown', 2000);
   });
 }
 
