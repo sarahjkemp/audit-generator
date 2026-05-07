@@ -1,0 +1,13 @@
+{
+  "name": "audit-generator",
+  "version": "1.0.0",
+  "description": "Internal AI Visibility & Narrative Audit generator — SJK Labs",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "express": "^4.19.2"
+  }
+}
