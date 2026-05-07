@@ -64,6 +64,27 @@ function formatChannelData(channels) {
   return results.join('\n\n');
 }
 
+const METHODOLOGY = `## About This Audit
+
+This audit works across two distinct layers that most audits treat separately — and that's exactly where the insight lives.
+
+**Layer one: AI visibility data.** Using Semrush's AI Visibility Overview, we measure how AI platforms currently see the business — what score they assign, where the company is being mentioned and cited, which topics and prompts are driving that visibility, and where competitors are appearing in their place. This gives us the quantitative picture: what AI knows, and what it doesn't.
+
+**Layer two: Narrative and channel analysis.** We then audit the full owned-channel footprint — website, LinkedIn, YouTube, social profiles — assessing what each channel is actually saying, whether it's legible to AI systems, whether it's active, and whether the story compounds or fragments across channels. This is the qualitative layer: what the business is telling AI to find.
+
+**The gap between those two layers is where the work is.** A high citation count with a fragmented narrative means authority is leaking. A coherent story with low visibility means the right foundations exist but no one — human or AI — is being pointed to them. This audit names which problem you have, in what order, and what to do about it.
+
+**This audit covers:**
+- AI Visibility Score across ChatGPT, AI Overview, Gemini, and AI Mode
+- Mention, citation, and cited page analysis
+- Performing topics and prompts — and whether they're the right ones
+- Competitive gap: where you're absent and rivals aren't
+- Full channel footprint: GEO legibility, activity, and narrative coherence per channel
+- Cross-channel narrative assessment
+- Prioritised recommendations and recommended next engagement
+
+---`;
+
 app.post('/generate', upload.single('semrushPdf'), async (req, res) => {
   const {
     clientName, website, industry, yourNotes,
@@ -128,13 +149,7 @@ Strategic observations: ${yourNotes || 'Not provided'}
 
 Write in a clear, direct, strategic voice. Not corporate, not fluffy. The client is paying £3,500 for real insight. Reference actual data points throughout. Don't pad. Don't hedge.
 
-Generate the audit report in this exact structure:
-
-# AI Visibility & Narrative Audit
-## ${clientName} | ${today} | SJK Labs
-*Confidential*
-
----
+Generate the findings section of the audit report. Start directly with the first section heading — do not include a title or header block. Use this exact structure:
 
 ## The Situation
 2–3 sentences. The honest "so what" — where does ${clientName} stand in AI right now, and how coherent is their owned-channel footprint? The headline finding.
@@ -192,7 +207,11 @@ Format in clean markdown. Use **bold** for key data points and key conclusions.`
     });
 
     fs.unlinkSync(req.file.path);
-    res.json({ report: message.content[0].text });
+
+    const header = `# AI Visibility & Narrative Audit\n## ${clientName} | ${today} | SJK Labs\n*Confidential*\n\n---\n`;
+    const report = `${header}\n${METHODOLOGY}\n\n${message.content[0].text}`;
+
+    res.json({ report });
   } catch (error) {
     try { if (req.file) fs.unlinkSync(req.file.path); } catch {}
     console.error('Error:', error.message);
