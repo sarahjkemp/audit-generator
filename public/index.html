@@ -325,20 +325,6 @@
     </div>
   </div>
 
-  <div class="section">
-    <div class="section-label">Recommended Next Step</div>
-    <div class="grid-1">
-      <div class="field">
-        <label>What's the right next engagement?</label>
-        <select id="nextStep">
-          <option value="Narrative Development (£12,000 · 4 weeks) — to fix the underlying positioning and messaging before investing further in visibility">Narrative Development — fix the story first (£12K · 4 weeks)</option>
-          <option value="Authority Building (£6,500/month · 6-month minimum) — to compound visibility now the narrative is clear enough">Authority Building — compound visibility now (£6.5K/month)</option>
-          <option value="Narrative Development first (£12,000 · 4 weeks) to fix the story, then Authority Building (£6,500/month) to compound it">Both: Narrative Development, then Authority Building</option>
-          <option value="The Scriptwriter Test™ (£3,000 · 5 days) — more diagnostic work is needed before committing to an execution path">More diagnostic work first — The Scriptwriter Test™ (£3K)</option>
-        </select>
-      </div>
-    </div>
-  </div>
 
   <div class="error-msg" id="errorMsg"></div>
 
@@ -418,7 +404,6 @@ async function generateReport() {
   formData.append('website', document.getElementById('website').value.trim());
   formData.append('industry', document.getElementById('industry').value.trim());
   formData.append('yourNotes', document.getElementById('yourNotes').value.trim());
-  formData.append('nextStep', document.getElementById('nextStep').value);
   formData.append('channelLinkedIn', document.getElementById('channelLinkedIn').value.trim());
   formData.append('channelTwitter', document.getElementById('channelTwitter').value.trim());
   formData.append('channelYouTube', document.getElementById('channelYouTube').value.trim());

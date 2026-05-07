@@ -66,7 +66,7 @@ function formatChannelData(channels) {
 
 app.post('/generate', upload.single('semrushPdf'), async (req, res) => {
   const {
-    clientName, website, industry, yourNotes, nextStep,
+    clientName, website, industry, yourNotes,
     channelLinkedIn, channelTwitter, channelYouTube,
     channelFacebook, channelInstagram, channelSubstack, channelOther,
     channelObservations,
@@ -123,7 +123,6 @@ ${channelObservations ? `ANALYST CHANNEL OBSERVATIONS:\n${channelObservations}\n
 ANALYST CONTEXT:
 What they do: ${industry || 'Not provided'}
 Strategic observations: ${yourNotes || 'Not provided'}
-Recommended next step: ${nextStep}
 
 ---
 
@@ -167,7 +166,13 @@ The synthesis. Where do the AI visibility gaps and the channel/narrative gaps in
 3–5 specific, ordered fixes. Most impactful first. Concrete enough that the client knows exactly what each one means.
 
 ## The Path Forward
-One short paragraph. Based on what this audit has revealed, the logical next step is: ${nextStep}. Explain why — conclusion from evidence, not a pitch.
+Based on everything this audit has revealed, make a clear recommendation for the right next engagement. Choose from:
+- **The Scriptwriter Test™ (£3,000 · 5 days)** — if the core problem is that the narrative and positioning aren't clear enough yet to build on
+- **Narrative Development (£12,000 · 4 weeks)** — if the problem is diagnosed and the story needs a full rebuild before any visibility work
+- **Authority Building (£6,500/month · 6-month minimum)** — if the narrative is clear enough and the priority is compounding visibility and presence
+- **Narrative Development, then Authority Building** — if both are needed in sequence
+
+State your recommendation clearly, explain why in 2–3 sentences grounded in the evidence from this audit. This is a conclusion, not a sales pitch.
 
 ---
 
