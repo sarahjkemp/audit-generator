@@ -267,12 +267,60 @@
   </div>
 
   <div class="section">
-    <div class="section-label">Your Observations</div>
+    <div class="section-label">Channel Footprint</div>
+    <p style="font-size:13px;color:#666;margin-bottom:20px;line-height:1.5;">Enter the URLs for any channels they have. The tool will fetch what it can automatically — social platforms often block access, so add your observations below for anything it can't read.</p>
+    <div class="grid-2">
+      <div class="field">
+        <label>LinkedIn</label>
+        <input type="text" id="channelLinkedIn" placeholder="https://linkedin.com/company/...">
+      </div>
+      <div class="field">
+        <label>Twitter / X</label>
+        <input type="text" id="channelTwitter" placeholder="https://x.com/...">
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="field">
+        <label>YouTube</label>
+        <input type="text" id="channelYouTube" placeholder="https://youtube.com/@...">
+      </div>
+      <div class="field">
+        <label>Facebook</label>
+        <input type="text" id="channelFacebook" placeholder="https://facebook.com/...">
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="field">
+        <label>Instagram</label>
+        <input type="text" id="channelInstagram" placeholder="https://instagram.com/...">
+      </div>
+      <div class="field">
+        <label>Substack / Blog</label>
+        <input type="text" id="channelSubstack" placeholder="https://...">
+      </div>
+    </div>
+    <div class="grid-1">
+      <div class="field">
+        <label>Other (Xing, podcast, etc.)</label>
+        <input type="text" id="channelOther" placeholder="https://...">
+      </div>
+    </div>
+    <div class="grid-1" style="margin-top:8px">
+      <div class="field">
+        <label>Your channel observations</label>
+        <textarea id="channelObservations" placeholder="Anything you noticed that the tool can't see: broken links, stale profiles, follower counts, content quality, tone — anything relevant. e.g. 'Facebook button on site leads to a broken page. Xing last updated 2023. Twitter has 330 followers and last posted 6 months ago.'"></textarea>
+        <span class="hint">This is where your eyes beat the scraper. Don't skip it.</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-label">Your Strategic Observations</div>
     <div class="grid-1">
       <div class="field">
         <label>Strategic notes</label>
-        <textarea id="yourNotes" placeholder="What have you noticed? What's the real problem underneath the data? What can you see that they can't? Any context about the competitive landscape, their messaging, their spokesperson presence — anything that should shape the report."></textarea>
-        <span class="hint">This is your expert layer. The more you give, the sharper the report.</span>
+        <textarea id="yourNotes" placeholder="What's the real problem underneath all of this? What can you see that they can't? Any context about their competitive position, spokesperson presence, or narrative that should shape the report."></textarea>
+        <span class="hint">This is your expert layer. The more you give here, the sharper the synthesis.</span>
       </div>
     </div>
   </div>
@@ -306,8 +354,8 @@
     </div>
     <div class="loading" id="loadingMsg">
       <div class="spinner"></div><br>
-      Reading the Semrush report and fetching their website…<br>
-      <span style="color:#bbb;font-size:13px;">This takes about 30–40 seconds.</span>
+      Reading the Semrush report, fetching website and channels…<br>
+      <span style="color:#bbb;font-size:13px;">This takes about 40–60 seconds.</span>
     </div>
     <div class="report" id="reportContent"></div>
   </div>
@@ -371,6 +419,14 @@ async function generateReport() {
   formData.append('industry', document.getElementById('industry').value.trim());
   formData.append('yourNotes', document.getElementById('yourNotes').value.trim());
   formData.append('nextStep', document.getElementById('nextStep').value);
+  formData.append('channelLinkedIn', document.getElementById('channelLinkedIn').value.trim());
+  formData.append('channelTwitter', document.getElementById('channelTwitter').value.trim());
+  formData.append('channelYouTube', document.getElementById('channelYouTube').value.trim());
+  formData.append('channelFacebook', document.getElementById('channelFacebook').value.trim());
+  formData.append('channelInstagram', document.getElementById('channelInstagram').value.trim());
+  formData.append('channelSubstack', document.getElementById('channelSubstack').value.trim());
+  formData.append('channelOther', document.getElementById('channelOther').value.trim());
+  formData.append('channelObservations', document.getElementById('channelObservations').value.trim());
   formData.append('semrushPdf', pdfFile);
 
   try {

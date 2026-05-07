@@ -9,44 +9,116 @@ const client = new Anthropic();
 
 app.use(express.static('public'));
 
-async function fetchWebsite(url) {
+async function fetchPage(url, maxChars = 6000) {
   try {
     if (!url.startsWith('http')) url = 'https://' + url;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8000);
     const res = await fetch(url, {
       signal: controller.signal,
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; audit-bot/1.0)' },
+      headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' },
     });
     clearTimeout(timeout);
     const html = await res.text();
-    return html
+
+    // Extract OG/meta tags for a structured summary
+    const getMeta = (name) => {
+      const m = html.match(new RegExp(`<meta[^>]+(?:name|property)=["']${name}["'][^>]+content=["']([^"']+)["']`, 'i'))
+               || html.match(new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]+(?:name|property)=["']${name}["']`, 'i'));
+      return m ? m[1] : null;
+    };
+
+    const title = getMeta('og:title') || html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1] || null;
+    const description = getMeta('og:description') || getMeta('description') || null;
+    const siteName = getMeta('og:site_name') || null;
+
+    const text = html
       .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
       .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
       .replace(/<[^>]+>/g, ' ')
       .replace(/\s+/g, ' ')
       .trim()
-      .slice(0, 6000);
-  } catch {
-    return null;
+      .slice(0, maxChars);
+
+    return { url, title, description, siteName, text, accessible: true };
+  } catch (err) {
+    return { url, accessible: false, error: err.message };
   }
 }
 
+function formatChannelData(channels) {
+  const results = [];
+  for (const [name, data] of Object.entries(channels)) {
+    if (!data.url) continue;
+    if (!data.accessible) {
+      results.push(`${name} (${data.url}): Could not fetch — likely requires login or blocked. ${data.notes ? 'Analyst notes: ' + data.notes : ''}`);
+    } else {
+      const parts = [`${name} (${data.url}):`];
+      if (data.title) parts.push(`  Title: ${data.title}`);
+      if (data.description) parts.push(`  Description: ${data.description}`);
+      if (data.text) parts.push(`  Content excerpt: ${data.text.slice(0, 800)}`);
+      if (data.notes) parts.push(`  Analyst notes: ${data.notes}`);
+      results.push(parts.join('\n'));
+    }
+  }
+  return results.join('\n\n');
+}
+
 app.post('/generate', upload.single('semrushPdf'), async (req, res) => {
-  const { clientName, website, industry, yourNotes, nextStep } = req.body;
+  const {
+    clientName, website, industry, yourNotes, nextStep,
+    channelLinkedIn, channelTwitter, channelYouTube,
+    channelFacebook, channelInstagram, channelSubstack, channelOther,
+    channelObservations,
+  } = req.body;
 
   if (!clientName) return res.status(400).json({ error: 'Client name is required.' });
   if (!req.file) return res.status(400).json({ error: 'Please upload the Semrush PDF.' });
 
   const pdfBase64 = fs.readFileSync(req.file.path).toString('base64');
-  const websiteContent = website ? await fetchWebsite(website) : null;
   const today = new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+
+  // Fetch all channels in parallel
+  const fetchJobs = {
+    website: website ? fetchPage(website) : Promise.resolve(null),
+    linkedin: channelLinkedIn ? fetchPage(channelLinkedIn, 2000) : Promise.resolve(null),
+    twitter: channelTwitter ? fetchPage(channelTwitter, 2000) : Promise.resolve(null),
+    youtube: channelYouTube ? fetchPage(channelYouTube, 3000) : Promise.resolve(null),
+    facebook: channelFacebook ? fetchPage(channelFacebook, 1000) : Promise.resolve(null),
+    instagram: channelInstagram ? fetchPage(channelInstagram, 1000) : Promise.resolve(null),
+    substack: channelSubstack ? fetchPage(channelSubstack, 3000) : Promise.resolve(null),
+    other: channelOther ? fetchPage(channelOther, 2000) : Promise.resolve(null),
+  };
+
+  const fetched = {};
+  for (const [key, job] of Object.entries(fetchJobs)) {
+    fetched[key] = await job;
+  }
+
+  const websiteContent = fetched.website;
+
+  // Build channel footprint summary
+  const channelMap = {
+    'LinkedIn': { ...fetched.linkedin, url: channelLinkedIn },
+    'Twitter / X': { ...fetched.twitter, url: channelTwitter },
+    'YouTube': { ...fetched.youtube, url: channelYouTube },
+    'Facebook': { ...fetched.facebook, url: channelFacebook },
+    'Instagram': { ...fetched.instagram, url: channelInstagram },
+    'Substack / Blog': { ...fetched.substack, url: channelSubstack },
+    'Other': { ...fetched.other, url: channelOther },
+  };
+
+  const channelSummary = formatChannelData(channelMap);
 
   const prompt = `You are an AI Visibility & Narrative Audit specialist working for SJK Labs.
 
 The attached PDF is a Semrush AI Visibility Overview report for ${clientName}${website ? ` (${website})` : ''}. Read it carefully and extract all data: AI visibility score, mentions, citations, cited pages, monthly audience, platform scores (ChatGPT/AI Overview/Gemini/AI Mode), performing topics, performing prompts, topic opportunities, and prompt opportunities.
 
-${websiteContent ? `WEBSITE CONTENT (fetched automatically from ${website}):\n${websiteContent}\n` : ''}
+${websiteContent?.accessible ? `WEBSITE (${website}):\n${websiteContent.description ? 'Meta description: ' + websiteContent.description + '\n' : ''}Content:\n${websiteContent.text}\n` : website ? `WEBSITE (${website}): Could not fetch.\n` : ''}
+
+${channelSummary ? `CHANNEL FOOTPRINT (auto-fetched where accessible):\n${channelSummary}\n` : ''}
+
+${channelObservations ? `ANALYST CHANNEL OBSERVATIONS:\n${channelObservations}\n` : ''}
 
 ANALYST CONTEXT:
 What they do: ${industry || 'Not provided'}
@@ -55,7 +127,7 @@ Recommended next step: ${nextStep}
 
 ---
 
-Write in a clear, direct, strategic voice. Not corporate, not fluffy. The client is paying £3,500 for real insight. Reference actual data points throughout — exact scores, topic names, competitor counts. Don't pad. Don't hedge.
+Write in a clear, direct, strategic voice. Not corporate, not fluffy. The client is paying £3,500 for real insight. Reference actual data points throughout. Don't pad. Don't hedge.
 
 Generate the audit report in this exact structure:
 
@@ -66,28 +138,36 @@ Generate the audit report in this exact structure:
 ---
 
 ## The Situation
-2–3 sentences. The honest "so what" — where does ${clientName} stand in AI right now? What is the headline?
+2–3 sentences. The honest "so what" — where does ${clientName} stand in AI right now, and how coherent is their owned-channel footprint? The headline finding.
 
 ## How AI Sees You Right Now
-Interpret the scores with specificity. What does the AI visibility score mean in practical terms for a business like this? Examine the citations vs mentions ratio — what does that gap signal? Break down the platform scores. Flag anything that stands out, especially a zero on any platform.
+Interpret the Semrush scores with specificity. What does the AI visibility score mean in practical terms? Examine the citations vs mentions ratio. Break down the platform scores and flag anything notable — especially any platform scoring zero.
 
 ## What AI Finds You For
-Don't just list the performing topics and prompts — interrogate them. Are these the right topics for ${clientName}'s business? Are AI systems routing the right buyers to them, or finding them for the wrong things?
+Interrogate the performing topics and prompts. Are these the right topics for this business? Are AI systems routing the right buyers to them, or finding them for tangential things?
 
 ## Where AI Misses You
-The gap is the story. Identify the topic and prompt opportunities where competitors are appearing and ${clientName} isn't. Quantify the scale of the missed audience where possible. What is the competitive exposure if this isn't addressed?
+The gap is the story. Identify the topic and prompt opportunities where competitors appear and ${clientName} doesn't. Quantify the missed audience where possible.
+
+## Channel Footprint: What AI Can Actually Read
+This is a critical section. For each channel present, assess:
+- **AI legibility**: Can AI systems actually crawl, read, and cite this channel? (YouTube transcripts yes; locked Facebook pages no; stale Xing profiles near-zero)
+- **Activity signal**: Is this channel active or abandoned? When was it last updated?
+- **Narrative coherence**: Does this channel reinforce the main website story, or does it go its own way — or say nothing useful at all?
+
+Be specific about which channels are compounding authority and which are creating dead weight or narrative noise. A broken Facebook link or a 2023 Xing profile is not neutral — it's a negative signal.
 
 ## What Your Owned Channels Are Actually Saying
-${websiteContent ? `Analyse their website content (fetched above) alongside any other context provided. ` : ''}Where does the story compound and reinforce itself? Where does it thin out, fragment, or contradict what AI is finding them for? Be specific and direct.
+Step back from individual channels and look at the full picture. What story does ${clientName}'s total footprint tell to a buyer — or to an AI system trying to summarise who they are? Where does the narrative compound? Where does it fragment, thin out, or contradict itself entirely?
 
 ## The Strategic Read
-This is the synthesis. Where do the AI visibility gaps and the narrative gaps intersect? What is the one underlying problem that explains most of what we're seeing? Don't list symptoms — name the diagnosis.
+The synthesis. Where do the AI visibility gaps and the channel/narrative gaps intersect? What is the one underlying problem that explains most of what we're seeing? Name the diagnosis, not the symptoms.
 
 ## What Needs to Happen Next
-3–5 specific, ordered fixes. Most impactful first. Each should be concrete enough that the client knows exactly what it means.
+3–5 specific, ordered fixes. Most impactful first. Concrete enough that the client knows exactly what each one means.
 
 ## The Path Forward
-One short paragraph. Based on what this audit has revealed, the logical next step is: ${nextStep}. Explain why — this is a conclusion from the evidence, not a pitch.
+One short paragraph. Based on what this audit has revealed, the logical next step is: ${nextStep}. Explain why — conclusion from evidence, not a pitch.
 
 ---
 
@@ -96,14 +176,11 @@ Format in clean markdown. Use **bold** for key data points and key conclusions.`
   try {
     const message = await client.messages.create({
       model: 'claude-opus-4-7',
-      max_tokens: 4096,
+      max_tokens: 5000,
       messages: [{
         role: 'user',
         content: [
-          {
-            type: 'document',
-            source: { type: 'base64', media_type: 'application/pdf', data: pdfBase64 },
-          },
+          { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: pdfBase64 } },
           { type: 'text', text: prompt },
         ],
       }],
