@@ -171,8 +171,32 @@ This is a critical section. For each channel present, assess:
 
 Be specific about which channels are compounding authority and which are creating dead weight or narrative noise. A broken Facebook link or a 2023 Xing profile is not neutral — it's a negative signal.
 
-## What Your Owned Channels Are Actually Saying
-Step back from individual channels and look at the full picture. What story does ${clientName}'s total footprint tell to a buyer — or to an AI system trying to summarise who they are? Where does the narrative compound? Where does it fragment, thin out, or contradict itself entirely?
+## Narrative Diagnostic
+
+Apply the Scriptwriter Test™ framework to the website and owned channel content. Be direct and specific — use actual language examples from what was fetched. Do not be generous. If the narrative fails a test, say so plainly.
+
+**Protagonist — Who is the story about?**
+What you see: [2–3 lines describing how the company positions itself — who is at the centre of the story]
+Issue: State clearly whether the company is the hero, the customer is the hero, or it's unclear. The correct answer is always that the customer should be the hero — the company is the guide. If ${clientName} is the protagonist, name it directly.
+Why it matters: If the customer is not clearly the hero, the story becomes harder to relate to and remember.
+
+**Stakes — Why does this matter now?**
+What you see: [What the content says about the problem being solved and the cost of inaction]
+Issue: Are the stakes explicit and urgent, or weak, implied, or missing entirely?
+Why it matters: Without stakes, there is no urgency or reason to choose this now.
+
+**Dialogue — How does it sound?**
+What you see: [Pull actual phrases or language examples from the website/channels]
+Issue: Does it sound human and repeatable, or like a manual, a brochure, or a list of category clichés?
+Why it matters: If it can't be said simply, it won't be repeated or understood.
+
+**Where the story breaks:**
+One clear sentence. The exact point at which the narrative fails.
+
+**One-line summary:**
+The honest commercial consequence of the current narrative state.
+
+---
 
 ## The Strategic Read
 The synthesis. Where do the AI visibility gaps and the channel/narrative gaps intersect? What is the one underlying problem that explains most of what we're seeing? Name the diagnosis, not the symptoms.
