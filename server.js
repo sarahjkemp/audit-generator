@@ -8,6 +8,7 @@ const upload = multer({ dest: 'uploads/', limits: { fileSize: 25 * 1024 * 1024 }
 const client = new Anthropic();
 
 app.use(express.static('public'));
+app.use(express.json());
 
 async function fetchPage(url, maxChars = 6000) {
   try {
@@ -239,6 +240,287 @@ Format in clean markdown. Use **bold** for key data points and key conclusions.`
   } catch (error) {
     try { if (req.file) fs.unlinkSync(req.file.path); } catch {}
     console.error('Error:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/scriptwriter', async (req, res) => {
+  const {
+    clientName, website,
+    sw_aboutUrl, sw_serviceUrl, sw_proofUrl,
+    sw_protagonist, sw_audience, sw_conversionGoal, sw_whatTheySell,
+    sw_problem, sw_stakes, sw_differentiators, sw_proof,
+    sw_spokespersonName, sw_spokespersonVoice,
+    sw_audienceLanguage, sw_brandVoice,
+    sw_objections, sw_competitors,
+  } = req.body;
+
+  if (!clientName) return res.status(400).json({ error: 'Client name is required.' });
+  if (!website) return res.status(400).json({ error: 'Website URL is required.' });
+
+  const today = new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+
+  const [homePage, aboutPage, servicePage, proofPage] = await Promise.all([
+    fetchPage(website, 8000),
+    sw_aboutUrl ? fetchPage(sw_aboutUrl, 8000) : Promise.resolve(null),
+    sw_serviceUrl ? fetchPage(sw_serviceUrl, 8000) : Promise.resolve(null),
+    sw_proofUrl ? fetchPage(sw_proofUrl, 8000) : Promise.resolve(null),
+  ]);
+
+  const formatPage = (label, data) => {
+    if (!data) return null;
+    if (!data.accessible) return `${label} (${data.url}): Could not fetch — ${data.error}`;
+    const parts = [`${label} (${data.url}):`];
+    if (data.title) parts.push(`Title: ${data.title}`);
+    if (data.description) parts.push(`Meta description: ${data.description}`);
+    parts.push(`Content:\n${data.text}`);
+    return parts.join('\n');
+  };
+
+  const pagesContent = [
+    formatPage('HOMEPAGE', homePage),
+    sw_aboutUrl ? formatPage('ABOUT PAGE', aboutPage) : null,
+    sw_serviceUrl ? formatPage('SERVICE/METHODOLOGY PAGE', servicePage) : null,
+    sw_proofUrl ? formatPage('PROOF/CASE STUDIES PAGE', proofPage) : null,
+  ].filter(Boolean).join('\n\n---\n\n');
+
+  const prompt = `You are running The Scriptwriter Test — a structured narrative audit and full website rewrite.
+
+WHAT YOU ARE DOING
+You are auditing the narrative of ${clientName}'s website and producing a complete rewrite based on the Scriptwriter Test framework. The framework diagnoses three failure modes — protagonist, stakes, and dialogue — then builds a messaging spine and writes full page-level copy.
+
+GROUND RULES FOR THE REWRITE
+- The customer is the hero. The company is the guide.
+- Name the problem before the method, every time.
+- Stakes must be explicit: the cost of inaction must land in plain language.
+- Replace category language with specific, human, repeatable phrases.
+- Every proof claim must use the exact evidence provided. Do not invent proof. If evidence is thin, flag it.
+- Draft copy that cannot be said in a conversation has failed. Rewrite it.
+
+COMPANY CONTEXT
+Company: ${clientName}
+Website: ${website}
+What they sell: ${sw_whatTheySell || '(not provided)'}
+Target audience: ${sw_audience || '(not provided)'}
+Primary protagonist: ${sw_protagonist || '(not provided)'}
+Conversion goal: ${sw_conversionGoal || '(not provided)'}
+Top problem the protagonist has: ${sw_problem || '(not provided)'}
+Why that problem matters now — the stakes: ${sw_stakes || '(not provided)'}
+Main differentiators: ${sw_differentiators || '(not provided)'}
+Core proof — results, numbers, case studies: ${sw_proof || '(not provided)'}
+Brand voice: ${sw_brandVoice || '(not provided)'}
+Spokesperson: ${sw_spokespersonName || '(none specified)'}
+Spokesperson voice examples: ${sw_spokespersonVoice || '(none provided)'}
+How the audience describes their own problem: ${sw_audienceLanguage || '(none provided)'}
+Customer objections: ${sw_objections || '(none provided)'}
+Competitors / category: ${sw_competitors || '(none provided)'}
+
+PAGES FETCHED
+${pagesContent}
+
+---
+
+OUTPUT STRUCTURE
+
+Produce the following sections in order. Use the exact headings. Write actual copy — not descriptions of what the copy should say.
+
+## One-Line Summary
+[One sentence. The honest commercial consequence of the current narrative state. Not a compliment.]
+
+---
+
+## The Diagnosis
+
+**Protagonist — Who is the story about?**
+What we see: [2–3 sentences. Who is centred in the current copy. Reference actual phrases from the pages.]
+Issue: [Direct statement — is the company or the customer the hero?]
+Why it matters: [Commercial consequence.]
+
+**Stakes — Why does this matter now?**
+What we see: [What does the content say about the problem and cost of inaction? Quote actual language.]
+Issue: [Explicit and urgent, or weak, implied, or absent?]
+Why it matters: [What the buyer loses without urgency in the copy.]
+
+**Dialogue — How does it sound?**
+What we see: [Pull 2–3 actual phrases from the pages verbatim.]
+Issue: [Human and repeatable, or jargon-heavy and forgettable?]
+Why it matters: [If it can't be said simply, it won't be remembered.]
+
+**Where the story breaks:**
+[One sentence. The single clearest point of narrative failure.]
+
+---
+
+## What to Fix First
+1. [Most impactful. Concrete.]
+2.
+3.
+4.
+5.
+
+---
+
+## The Messaging Spine
+
+**Protagonist:** [One sentence — who this is for and what they're trying to do]
+**Stakes:** [One sentence — the cost of not solving this]
+**Proof pillars:**
+- [Specific claim backed by provided evidence]
+- [Specific claim backed by provided evidence]
+- [Specific claim, or flag if evidence is insufficient]
+**CTA logic:** [What action, why now, what happens next]
+**One-line narrative:** [Protagonist + problem + guide + outcome in one sentence]
+
+---
+
+## Page Rewrites
+
+Write full draft copy for each page that was successfully fetched. Skip pages that could not be accessed and note why.
+
+### Homepage
+
+**Narrative job:** [What this page must do — one sentence]
+
+**Key shifts:**
+-
+-
+-
+
+**Draft copy:**
+
+HERO
+Headline:
+Subhead:
+Opening paragraph:
+
+THE PROBLEM
+Section headline:
+Body:
+
+THE GUIDE
+Section headline:
+Body:
+
+PROOF
+Section headline:
+Body:
+
+CTA
+Headline:
+Body:
+Button text:
+
+---
+
+### About Page
+
+**Narrative job:**
+
+**Key shifts:**
+-
+-
+
+**Draft copy:**
+
+OPENING
+Headline:
+Body:
+
+THE PROBLEM WE SAW
+Body:
+
+HOW WE THINK
+Body:
+
+CREDIBILITY
+Body:
+
+CTA
+Headline:
+Button text:
+
+---
+
+### Service / Methodology Page
+
+**Narrative job:**
+
+**Key shifts:**
+-
+-
+
+**Draft copy:**
+
+WHAT THIS IS
+Headline:
+Subhead:
+Body:
+
+HOW IT WORKS
+Section headline:
+Body:
+
+PROOF IT WORKS
+Section headline:
+Body:
+
+WHO IT'S FOR
+Body:
+
+CTA
+Headline:
+Button text:
+
+---
+
+### Proof / Case Studies Page
+
+**Narrative job:**
+
+**Key shifts:**
+-
+-
+
+**Draft copy:**
+
+OPENING
+Headline:
+Body:
+
+PROOF POINTS
+Context:
+The problem they had:
+What changed:
+The result:
+
+CTA
+Headline:
+Button text:
+
+---
+
+## Confidence Flags
+
+**High confidence — strong evidence in what you were given:**
+-
+
+**Needs your judgment before using:**
+-
+`;
+
+  try {
+    const message = await client.messages.create({
+      model: 'claude-opus-4-7',
+      max_tokens: 8000,
+      messages: [{ role: 'user', content: prompt }],
+    });
+
+    const header = `# The Scriptwriter Test\n## ${clientName} | ${today} | SJK Labs\n*Internal — not for distribution*\n\n---\n`;
+    const report = `${header}\n${message.content[0].text}`;
+
+    res.json({ report });
+  } catch (error) {
+    console.error('Scriptwriter error:', error.message);
     res.status(500).json({ error: error.message });
   }
 });

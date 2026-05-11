@@ -217,6 +217,10 @@
   .report em { color: #888; font-style: italic; }
   .report hr { border: none; border-top: 1px solid #f0f0ee; margin: 24px 0; }
 
+  .scriptwriter-btn { background: #1c3830; }
+  .scriptwriter-btn:hover { background: #263d35; }
+  .scriptwriter-btn:disabled { background: #888; }
+
   @media (max-width: 600px) {
     .grid-2 { grid-template-columns: 1fr; }
     header { padding: 16px 20px; }
@@ -326,9 +330,126 @@
   </div>
 
 
+  <div style="margin: 32px 0 16px; display: flex; align-items: center; gap: 12px;">
+    <div style="flex: 1; height: 1px; background: #e0e0de;"></div>
+    <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #bbb; white-space: nowrap;">The Scriptwriter Test</div>
+    <div style="flex: 1; height: 1px; background: #e0e0de;"></div>
+  </div>
+
+  <div class="section">
+    <div class="section-label">Pages to Audit</div>
+    <p style="font-size:13px;color:#666;margin-bottom:20px;line-height:1.5;">Homepage comes from the website field above. Add the other key pages here.</p>
+    <div class="grid-2">
+      <div class="field">
+        <label>About Page URL</label>
+        <input type="text" id="sw_aboutUrl" placeholder="https://...">
+      </div>
+      <div class="field">
+        <label>Service / Methodology Page URL</label>
+        <input type="text" id="sw_serviceUrl" placeholder="https://...">
+      </div>
+    </div>
+    <div class="grid-1">
+      <div class="field">
+        <label>Proof / Case Studies Page URL</label>
+        <input type="text" id="sw_proofUrl" placeholder="https://...">
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-label">Protagonist & Context</div>
+    <div class="grid-2">
+      <div class="field">
+        <label>Primary protagonist</label>
+        <input type="text" id="sw_protagonist" placeholder="e.g. Early-stage founder trying to raise their first round">
+      </div>
+      <div class="field">
+        <label>Target audience / ICP</label>
+        <input type="text" id="sw_audience" placeholder="e.g. B2B SaaS founders, Series A, 10–50 employees">
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="field">
+        <label>Conversion goal</label>
+        <input type="text" id="sw_conversionGoal" placeholder="e.g. Book a discovery call">
+      </div>
+      <div class="field">
+        <label>What they actually sell</label>
+        <input type="text" id="sw_whatTheySell" placeholder="Specific — not the category, the actual thing">
+      </div>
+    </div>
+    <div class="grid-1">
+      <div class="field">
+        <label>Top problem the protagonist has</label>
+        <textarea id="sw_problem" placeholder="What is the protagonist trying to solve before they find this company? Be specific."></textarea>
+      </div>
+    </div>
+    <div class="grid-1">
+      <div class="field">
+        <label>Why that problem matters now — the stakes</label>
+        <textarea id="sw_stakes" placeholder="What is the cost of inaction? What happens if they don't solve this? Why now?"></textarea>
+        <span class="hint">This is the urgency layer. Without it there's no reason to act.</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-label">Proof, Voice & Differentiators</div>
+    <div class="grid-1">
+      <div class="field">
+        <label>Main differentiators</label>
+        <textarea id="sw_differentiators" placeholder="What actually makes them different — not 'we care more' but the specific thing"></textarea>
+      </div>
+    </div>
+    <div class="grid-1">
+      <div class="field">
+        <label>Core proof — results, case studies, numbers</label>
+        <textarea id="sw_proof" placeholder="Specific and nameable. e.g. '3 clients raised Series A within 8 months', 'saved £200k in year one', logos, testimonial quotes"></textarea>
+        <span class="hint">The rewrite is only as strong as the evidence you give it.</span>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="field">
+        <label>Spokesperson name</label>
+        <input type="text" id="sw_spokespersonName" placeholder="e.g. James Whitfield">
+      </div>
+      <div class="field">
+        <label>Brand voice</label>
+        <input type="text" id="sw_brandVoice" placeholder="e.g. Direct, warm, no jargon">
+      </div>
+    </div>
+    <div class="grid-1">
+      <div class="field">
+        <label>Spokesperson voice examples</label>
+        <textarea id="sw_spokespersonVoice" placeholder="Paste LinkedIn posts, bio text, or any writing that shows how they actually sound"></textarea>
+      </div>
+    </div>
+    <div class="grid-1">
+      <div class="field">
+        <label>How your audience describes their problem</label>
+        <textarea id="sw_audienceLanguage" placeholder="Paste quotes, reviews, or phrases customers use to describe what they were struggling with"></textarea>
+        <span class="hint">Real language beats invented language. This field is worth filling in.</span>
+      </div>
+    </div>
+    <div class="grid-1">
+      <div class="field">
+        <label>Top customer objections</label>
+        <textarea id="sw_objections" placeholder="e.g. 'Too expensive', 'We tried this before', 'We're not ready yet'"></textarea>
+      </div>
+    </div>
+    <div class="grid-1">
+      <div class="field">
+        <label>Competitors or category references</label>
+        <textarea id="sw_competitors" placeholder="Who else are they compared to? What category do buyers put them in?"></textarea>
+      </div>
+    </div>
+  </div>
+
   <div class="error-msg" id="errorMsg"></div>
 
   <button class="generate-btn" id="generateBtn" onclick="generateReport()">Generate Audit Report</button>
+  <button class="generate-btn scriptwriter-btn" id="scriptwriterBtn" onclick="runScriptwriterTest()">Run Scriptwriter Test</button>
 
   <div class="output-wrap" id="outputWrap">
     <div class="output-header">
@@ -344,6 +465,22 @@
       <span style="color:#bbb;font-size:13px;">This takes about 40–60 seconds.</span>
     </div>
     <div class="report" id="reportContent"></div>
+  </div>
+
+  <div class="output-wrap" id="scriptwriterOutputWrap">
+    <div class="output-header">
+      <span class="output-label">Scriptwriter Test</span>
+      <div class="btn-row">
+        <button class="copy-btn" onclick="copyScriptwriterReport()">Copy as Markdown</button>
+        <button class="new-btn" onclick="startNew()">New Audit</button>
+      </div>
+    </div>
+    <div class="loading" id="scriptwriterLoadingMsg">
+      <div class="spinner"></div><br>
+      Fetching pages and running the Scriptwriter Test…<br>
+      <span style="color:#bbb;font-size:13px;">This takes about 60–90 seconds.</span>
+    </div>
+    <div class="report" id="scriptwriterContent"></div>
   </div>
 
 </div>
@@ -443,8 +580,86 @@ function copyReport() {
 
 function startNew() {
   document.getElementById('outputWrap').style.display = 'none';
+  document.getElementById('scriptwriterOutputWrap').style.display = 'none';
   rawMarkdown = '';
+  scriptwriterMarkdown = '';
   window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+let scriptwriterMarkdown = '';
+
+async function runScriptwriterTest() {
+  const clientName = document.getElementById('clientName').value.trim();
+  const website = document.getElementById('website').value.trim();
+
+  if (!clientName) { alert('Please enter the client name.'); return; }
+  if (!website) { alert('Please enter the website URL.'); return; }
+
+  const btn = document.getElementById('scriptwriterBtn');
+  const outputWrap = document.getElementById('scriptwriterOutputWrap');
+  const loadingMsg = document.getElementById('scriptwriterLoadingMsg');
+  const reportContent = document.getElementById('scriptwriterContent');
+  const errorMsg = document.getElementById('errorMsg');
+
+  btn.disabled = true;
+  btn.textContent = 'Running…';
+  errorMsg.style.display = 'none';
+  reportContent.innerHTML = '';
+  loadingMsg.style.display = 'block';
+  outputWrap.style.display = 'block';
+  setTimeout(() => outputWrap.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+
+  const data = {
+    clientName,
+    website,
+    sw_aboutUrl: document.getElementById('sw_aboutUrl').value.trim(),
+    sw_serviceUrl: document.getElementById('sw_serviceUrl').value.trim(),
+    sw_proofUrl: document.getElementById('sw_proofUrl').value.trim(),
+    sw_protagonist: document.getElementById('sw_protagonist').value.trim(),
+    sw_audience: document.getElementById('sw_audience').value.trim(),
+    sw_conversionGoal: document.getElementById('sw_conversionGoal').value.trim(),
+    sw_whatTheySell: document.getElementById('sw_whatTheySell').value.trim(),
+    sw_problem: document.getElementById('sw_problem').value.trim(),
+    sw_stakes: document.getElementById('sw_stakes').value.trim(),
+    sw_differentiators: document.getElementById('sw_differentiators').value.trim(),
+    sw_proof: document.getElementById('sw_proof').value.trim(),
+    sw_spokespersonName: document.getElementById('sw_spokespersonName').value.trim(),
+    sw_brandVoice: document.getElementById('sw_brandVoice').value.trim(),
+    sw_spokespersonVoice: document.getElementById('sw_spokespersonVoice').value.trim(),
+    sw_audienceLanguage: document.getElementById('sw_audienceLanguage').value.trim(),
+    sw_objections: document.getElementById('sw_objections').value.trim(),
+    sw_competitors: document.getElementById('sw_competitors').value.trim(),
+  };
+
+  try {
+    const res = await fetch('/scriptwriter', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    const responseData = await res.json();
+    if (!res.ok) throw new Error(responseData.error || 'Something went wrong.');
+    scriptwriterMarkdown = responseData.report;
+    loadingMsg.style.display = 'none';
+    reportContent.innerHTML = marked.parse(scriptwriterMarkdown);
+  } catch (err) {
+    loadingMsg.style.display = 'none';
+    outputWrap.style.display = 'none';
+    errorMsg.textContent = 'Error: ' + err.message;
+    errorMsg.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Run Scriptwriter Test';
+  }
+}
+
+function copyScriptwriterReport() {
+  if (!scriptwriterMarkdown) return;
+  navigator.clipboard.writeText(scriptwriterMarkdown).then(() => {
+    const btn = document.querySelector('#scriptwriterOutputWrap .copy-btn');
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy as Markdown', 2000);
+  });
 }
 </script>
 </body>
