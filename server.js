@@ -568,7 +568,7 @@ async function queryPlatform(platform, query) {
     }
     if (platform === 'gemini') {
       if (!geminiClient) return '[Gemini API key not configured]';
-      const model = geminiClient.getGenerativeModel({ model: 'gemini-2.0-flash' });
+      const model = geminiClient.getGenerativeModel({ model: 'gemini-1.5-pro' });
       const res = await model.generateContent(query);
       return res.response.text().trim();
     }
