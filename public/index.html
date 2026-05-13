@@ -451,6 +451,42 @@
 
   <button class="generate-btn scriptwriter-btn" id="scriptwriterBtn" onclick="runScriptwriterTest()">Run Scriptwriter Test</button>
 
+  <div style="margin: 40px 0 16px; display: flex; align-items: center; gap: 12px;">
+    <div style="flex: 1; height: 1px; background: #e0e0de;"></div>
+    <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #bbb; white-space: nowrap;">AI Perception Audit — 50 Companies Study</div>
+    <div style="flex: 1; height: 1px; background: #e0e0de;"></div>
+  </div>
+
+  <div class="section">
+    <div class="section-label">Company Category</div>
+    <p style="font-size:13px;color:#666;margin-bottom:20px;line-height:1.5;">Runs 6 buyer-style prompts against ChatGPT (GPT-4o), Claude, Gemini, and Perplexity. Scores each against the Scriptwriter Test: clarity, accuracy, differentiation, customer pain point, proof/credibility, and category fit. Uses company name and website from the Client section above.</p>
+    <div class="grid-2">
+      <div class="field">
+        <label>Category</label>
+        <select id="audit_category">
+          <option value="">Select category</option>
+          <option value="PR / comms agency">PR / comms agency</option>
+          <option value="Consultancy">Consultancy</option>
+          <option value="B2B SaaS">B2B SaaS</option>
+          <option value="Founder-led expert business">Founder-led expert business</option>
+          <option value="AI / search / GEO firm">AI / search / GEO firm</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <div class="field" style="align-self: end;">
+        <span class="hint" style="display:block;margin-top:4px;">Takes 60–90 seconds. Queries all four platforms simultaneously.</span>
+      </div>
+    </div>
+    <div class="grid-1">
+      <div class="field">
+        <label>Analyst notes (optional)</label>
+        <textarea id="audit_notes" style="min-height:80px" placeholder="Anything that should inform the scoring — e.g. 'very niche, unlikely to be in AI training data' or 'well-funded and frequently covered in press'"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <button class="generate-btn" id="auditBtn" style="background:#1e3a4f;" onclick="runCompanyAudit()">Run AI Perception Audit</button>
+
   <div class="output-wrap" id="outputWrap">
     <div class="output-header">
       <span class="output-label">Generated Report</span>
@@ -481,6 +517,22 @@
       <span style="color:#bbb;font-size:13px;">This takes about 60–90 seconds.</span>
     </div>
     <div class="report" id="scriptwriterContent"></div>
+  </div>
+
+  <div class="output-wrap" id="auditOutputWrap">
+    <div class="output-header">
+      <span class="output-label">AI Perception Audit</span>
+      <div class="btn-row">
+        <button class="copy-btn" onclick="copyAuditReport()">Copy as Markdown</button>
+        <button class="new-btn" onclick="startNew()">New Audit</button>
+      </div>
+    </div>
+    <div class="loading" id="auditLoadingMsg">
+      <div class="spinner"></div><br>
+      Querying ChatGPT, Claude, Gemini and Perplexity…<br>
+      <span style="color:#bbb;font-size:13px;">This takes 60–90 seconds.</span>
+    </div>
+    <div class="report" id="auditContent"></div>
   </div>
 
 </div>
@@ -581,8 +633,10 @@ function copyReport() {
 function startNew() {
   document.getElementById('outputWrap').style.display = 'none';
   document.getElementById('scriptwriterOutputWrap').style.display = 'none';
+  document.getElementById('auditOutputWrap').style.display = 'none';
   rawMarkdown = '';
   scriptwriterMarkdown = '';
+  auditMarkdown = '';
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -657,6 +711,65 @@ function copyScriptwriterReport() {
   if (!scriptwriterMarkdown) return;
   navigator.clipboard.writeText(scriptwriterMarkdown).then(() => {
     const btn = document.querySelector('#scriptwriterOutputWrap .copy-btn');
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy as Markdown', 2000);
+  });
+}
+
+let auditMarkdown = '';
+
+async function runCompanyAudit() {
+  const clientName = document.getElementById('clientName').value.trim();
+  const website = document.getElementById('website').value.trim();
+
+  if (!clientName) { alert('Please enter the company name in the Client section above.'); return; }
+  if (!website)    { alert('Please enter the website URL in the Client section above.'); return; }
+
+  const btn        = document.getElementById('auditBtn');
+  const outputWrap = document.getElementById('auditOutputWrap');
+  const loadingMsg = document.getElementById('auditLoadingMsg');
+  const content    = document.getElementById('auditContent');
+  const errorMsg   = document.getElementById('errorMsg');
+
+  btn.disabled = true;
+  btn.textContent = 'Running…';
+  errorMsg.style.display = 'none';
+  content.innerHTML = '';
+  loadingMsg.style.display = 'block';
+  outputWrap.style.display = 'block';
+  setTimeout(() => outputWrap.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+
+  try {
+    const res = await fetch('/company-audit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        companyName: clientName,
+        website,
+        category: document.getElementById('audit_category').value,
+        notes:    document.getElementById('audit_notes').value.trim(),
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Something went wrong.');
+    auditMarkdown = data.report;
+    loadingMsg.style.display = 'none';
+    content.innerHTML = marked.parse(auditMarkdown);
+  } catch (err) {
+    loadingMsg.style.display = 'none';
+    outputWrap.style.display = 'none';
+    errorMsg.textContent = 'Error: ' + err.message;
+    errorMsg.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Run AI Perception Audit';
+  }
+}
+
+function copyAuditReport() {
+  if (!auditMarkdown) return;
+  navigator.clipboard.writeText(auditMarkdown).then(() => {
+    const btn = document.querySelector('#auditOutputWrap .copy-btn');
     btn.textContent = 'Copied!';
     setTimeout(() => btn.textContent = 'Copy as Markdown', 2000);
   });

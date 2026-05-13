@@ -1,11 +1,25 @@
 const express = require('express');
 const multer = require('multer');
 const Anthropic = require('@anthropic-ai/sdk');
+const OpenAI = require('openai');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 const fs = require('fs');
 
 const app = express();
 const upload = multer({ dest: 'uploads/', limits: { fileSize: 25 * 1024 * 1024 } });
 const client = new Anthropic();
+
+const openaiClient = process.env.OPENAI_API_KEY
+  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  : null;
+
+const perplexityClient = process.env.PERPLEXITY_API_KEY
+  ? new OpenAI({ apiKey: process.env.PERPLEXITY_API_KEY, baseURL: 'https://api.perplexity.ai' })
+  : null;
+
+const geminiClient = process.env.GEMINI_API_KEY
+  ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
+  : null;
 
 app.use(express.static('public'));
 app.use(express.json());
@@ -524,6 +538,203 @@ Button text:
     res.status(500).json({ error: error.message });
   }
 });
+
+// ── AI Perception Audit (50-Company Study) ──────────────────────────────────
+
+const COMPANY_PROMPTS = [
+  { key: 'what_they_do',    label: 'What does this company do?',     query: (n) => `What does ${n} do?` },
+  { key: 'who_for',         label: 'Who is it for?',                 query: (n) => `Who is ${n} for?` },
+  { key: 'problem',         label: 'What problem does it solve?',    query: (n) => `What problem does ${n} solve?` },
+  { key: 'differentiation', label: 'What makes it different?',       query: (n) => `What makes ${n} different from its competitors?` },
+  { key: 'credibility',     label: 'Is it credible?',                query: (n) => `Is ${n} credible? What evidence exists for this?` },
+  { key: 'alternatives',    label: 'Who are its alternatives?',      query: (n) => `Who are the main alternatives to ${n}?` },
+];
+
+const PLATFORM_META = {
+  chatgpt:    { label: 'ChatGPT (GPT-4o)',              model: 'gpt-4o' },
+  claude:     { label: 'Claude (claude-sonnet-4-6)',    model: 'claude-sonnet-4-6' },
+  gemini:     { label: 'Gemini (gemini-1.5-flash)',     model: 'gemini-1.5-flash' },
+  perplexity: { label: 'Perplexity (sonar)',            model: 'sonar' },
+};
+
+async function queryPlatform(platform, query) {
+  try {
+    if (platform === 'chatgpt') {
+      if (!openaiClient) return '[OpenAI API key not configured]';
+      const res = await openaiClient.chat.completions.create({
+        model: 'gpt-4o', messages: [{ role: 'user', content: query }], max_tokens: 400, temperature: 0.2,
+      });
+      return res.choices[0].message.content.trim();
+    }
+    if (platform === 'gemini') {
+      if (!geminiClient) return '[Gemini API key not configured]';
+      const model = geminiClient.getGenerativeModel({ model: 'gemini-1.5-flash' });
+      const res = await model.generateContent(query);
+      return res.response.text().trim();
+    }
+    if (platform === 'perplexity') {
+      if (!perplexityClient) return '[Perplexity API key not configured]';
+      const res = await perplexityClient.chat.completions.create({
+        model: 'sonar', messages: [{ role: 'user', content: query }], max_tokens: 400,
+      });
+      return res.choices[0].message.content.trim();
+    }
+    if (platform === 'claude') {
+      const res = await client.messages.create({
+        model: 'claude-sonnet-4-6', max_tokens: 400,
+        messages: [{ role: 'user', content: query }],
+      });
+      return res.content[0].text.trim();
+    }
+  } catch (err) {
+    return `[Error: ${err.message}]`;
+  }
+}
+
+app.post('/company-audit', async (req, res) => {
+  const { companyName, website, category, notes } = req.body;
+  if (!companyName) return res.status(400).json({ error: 'Company name is required.' });
+  if (!website)     return res.status(400).json({ error: 'Website URL is required.' });
+
+  const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+  const platforms = ['chatgpt', 'claude', 'gemini', 'perplexity'];
+
+  // Build all query tasks and fetch website in parallel
+  const allTasks = [];
+  for (const platform of platforms) {
+    for (const prompt of COMPANY_PROMPTS) {
+      allTasks.push({ platform, key: prompt.key, label: prompt.label });
+    }
+  }
+
+  const [websiteData, ...platformResults] = await Promise.all([
+    fetchPage(website, 6000),
+    ...allTasks.map(t => queryPlatform(t.platform, COMPANY_PROMPTS.find(p => p.key === t.key).query(companyName))),
+  ]);
+
+  // Organise results by platform → prompt key
+  const responses = {};
+  platforms.forEach(p => { responses[p] = {}; });
+  allTasks.forEach((task, i) => { responses[task.platform][task.key] = platformResults[i]; });
+
+  const groundTruth = websiteData?.accessible
+    ? [
+        websiteData.title       ? `Title: ${websiteData.title}` : null,
+        websiteData.description ? `Meta description: ${websiteData.description}` : null,
+        `Content:\n${websiteData.text}`,
+      ].filter(Boolean).join('\n')
+    : `Website could not be fetched: ${websiteData?.error || 'unknown error'}`;
+
+  // Format raw responses block for scoring prompt
+  let responsesBlock = '';
+  for (const prompt of COMPANY_PROMPTS) {
+    responsesBlock += `\n**${prompt.label}**\n`;
+    for (const platform of platforms) {
+      responsesBlock += `${PLATFORM_META[platform].label}: ${responses[platform][prompt.key]}\n\n`;
+    }
+  }
+
+  const scoringPrompt = `You are a researcher at SJK Labs producing a structured AI perception audit. This is entry ${companyName} in the study "The Scriptwriter Test: What AI Gets Wrong About Expert-Led Businesses" — a structured analysis of how AI systems describe 50 companies when asked buyer-style questions.
+
+COMPANY: ${companyName}
+WEBSITE: ${website}
+CATEGORY: ${category || 'Not specified'}
+DATE TESTED: ${today}
+MODELS USED: ChatGPT (GPT-4o) · Claude (claude-sonnet-4-6) · Gemini (gemini-1.5-flash) · Perplexity (sonar, web-enabled)
+${notes ? `ANALYST NOTES: ${notes}` : ''}
+
+GROUND TRUTH (from company website):
+${groundTruth}
+
+RAW AI PLATFORM RESPONSES:
+${responsesBlock}
+
+---
+
+Produce the full audit report below. Be analytical and direct. Quote actual language from the website and AI responses. Do not be generous with scores: 3 = partial/generic, 5 = accurate and specific. Fill in every table cell.
+
+---
+
+## ${companyName}
+*${category || 'B2B business'} · Tested ${today} · SJK Labs · Methodology: The Scriptwriter Test*
+
+---
+
+### What They Actually Do
+3–4 sentences from the ground truth only. What does the website say this company does, who it serves, and what makes it different? Quote actual language from the site.
+
+---
+
+### AI Responses
+
+${COMPANY_PROMPTS.map((p, i) => `#### Q${i + 1}: ${p.label}
+
+**ChatGPT:** [response]
+**Claude:** [response]
+**Gemini:** [response]
+**Perplexity:** [response]`).join('\n\n')}
+
+Fill in each response with the actual platform response above (condense to 1–2 sentences where needed, preserving key language and any notable claims or errors).
+
+---
+
+### Scriptwriter Test Scores
+
+Score 1–5 per dimension per platform:
+- 1 = completely fails (wrong, generic, or no information)
+- 2 = weak (vague category-level only)
+- 3 = partial (some accuracy, no differentiation)
+- 4 = good (accurate, some specificity)
+- 5 = strong (accurate, specific, differentiated)
+
+| Dimension | ChatGPT | Claude | Gemini | Perplexity |
+|-----------|---------|--------|--------|-----------|
+| Clarity | | | | |
+| Accuracy | | | | |
+| Differentiation | | | | |
+| Customer pain point | | | | |
+| Proof / credibility | | | | |
+| Category fit | | | | |
+| **Total /30** | | | | |
+
+---
+
+### Analysis
+
+**Where AI gets it right:**
+What do the platforms accurately capture? Cite specific responses.
+
+**Where AI gets it wrong:**
+What do they miss, distort, or genericise? Quote actual response language.
+
+**What's missing entirely:**
+Specific claims, differentiators, or proof from the website that no AI platform surfaced.
+
+**The narrative gap:**
+One sentence: the clearest difference between how ${companyName} describes itself and how AI describes it.
+
+**One-line finding for dataset:**
+Format: "${companyName} — [key finding about AI perception gap in one sentence]"
+
+---
+
+Format in clean markdown. Fill in every table cell with a number.`;
+
+  try {
+    const message = await client.messages.create({
+      model: 'claude-opus-4-7',
+      max_tokens: 4000,
+      messages: [{ role: 'user', content: scoringPrompt }],
+    });
+
+    res.json({ report: message.content[0].text, rawResponses: responses });
+  } catch (error) {
+    console.error('Company audit error:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ────────────────────────────────────────────────────────────────────────────
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Running on http://localhost:${PORT}`));
