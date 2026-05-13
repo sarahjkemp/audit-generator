@@ -741,6 +741,26 @@ Format in clean markdown. Fill in every table cell with a number.`;
   }
 });
 
+// ── Gemini diagnostic endpoint ───────────────────────────────────────────────
+
+app.get('/test-gemini', async (req, res) => {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return res.json({ status: 'no key', detail: 'GEMINI_API_KEY not set' });
+
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: [{ parts: [{ text: 'Say hello in one word.' }] }] }),
+    });
+    const data = await r.json();
+    res.json({ httpStatus: r.status, body: data });
+  } catch (err) {
+    res.json({ status: 'fetch threw', error: err.message });
+  }
+});
+
 // ────────────────────────────────────────────────────────────────────────────
 
 const PORT = process.env.PORT || 3000;
