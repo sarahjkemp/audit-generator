@@ -567,12 +567,17 @@ async function queryPlatform(platform, query) {
       return res.choices[0].message.content.trim();
     }
     if (platform === 'gemini') {
-      if (!geminiClient) return '[Gemini API key not configured]';
-      const model = geminiClient.getGenerativeModel({ model: 'gemini-1.5-flash' });
-      const res = await model.generateContent(query);
-      const candidates = res.response.candidates;
-      if (!candidates || candidates.length === 0) return '[Gemini returned no candidates — possibly filtered]';
-      return res.response.text().trim();
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) return '[Gemini API key not configured]';
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+      const gemRes = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: query }] }] }),
+      });
+      const gemData = await gemRes.json();
+      if (!gemRes.ok) return `[Gemini error: ${gemData.error?.message || gemRes.status}]`;
+      return gemData.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '[Gemini returned empty response]';
     }
     if (platform === 'perplexity') {
       if (!perplexityClient) return '[Perplexity API key not configured]';
