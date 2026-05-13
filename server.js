@@ -568,8 +568,10 @@ async function queryPlatform(platform, query) {
     }
     if (platform === 'gemini') {
       if (!geminiClient) return '[Gemini API key not configured]';
-      const model = geminiClient.getGenerativeModel({ model: 'gemini-1.5-pro' });
+      const model = geminiClient.getGenerativeModel({ model: 'gemini-1.5-flash' });
       const res = await model.generateContent(query);
+      const candidates = res.response.candidates;
+      if (!candidates || candidates.length === 0) return '[Gemini returned no candidates — possibly filtered]';
       return res.response.text().trim();
     }
     if (platform === 'perplexity') {
