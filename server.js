@@ -725,6 +725,18 @@ Format: "${companyName} — [key finding about AI perception gap in one sentence
 
 ---
 
+### Best Next Step
+
+Based on the scores, the narrative gap, and what's missing from AI responses, give one clear, specific recommendation. Consider:
+- Is this a visibility problem (not enough indexed content, citations, or mentions for AI to find)?
+- Is this a narrative problem (content exists but is unclear, fragmented, or uses the wrong language)?
+- Is this a proof problem (no third-party validation, case studies, or press for AI to cite)?
+- Is this a maturity problem (company too new to have a meaningful footprint yet)?
+
+Name the diagnosis first, then give 2–3 concrete actions in priority order. Be direct. If the company is too new to have built AI visibility yet, say so plainly and explain what to do first. Do not recommend things that don't follow from the evidence.
+
+---
+
 Format in clean markdown. Fill in every table cell with a number.`;
 
   try {
