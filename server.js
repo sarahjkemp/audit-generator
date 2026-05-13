@@ -553,7 +553,7 @@ const COMPANY_PROMPTS = [
 const PLATFORM_META = {
   chatgpt:    { label: 'ChatGPT (GPT-4o)',              model: 'gpt-4o' },
   claude:     { label: 'Claude (claude-sonnet-4-6)',    model: 'claude-sonnet-4-6' },
-  gemini:     { label: 'Gemini (gemini-1.5-flash)',     model: 'gemini-1.5-flash' },
+  gemini:     { label: 'Gemini (gemini-2.0-flash)',     model: 'gemini-2.0-flash' },
   perplexity: { label: 'Perplexity (sonar)',            model: 'sonar' },
 };
 
@@ -568,7 +568,7 @@ async function queryPlatform(platform, query) {
     }
     if (platform === 'gemini') {
       if (!geminiClient) return '[Gemini API key not configured]';
-      const model = geminiClient.getGenerativeModel({ model: 'gemini-1.5-flash' });
+      const model = geminiClient.getGenerativeModel({ model: 'gemini-2.0-flash' });
       const res = await model.generateContent(query);
       return res.response.text().trim();
     }
@@ -640,7 +640,7 @@ COMPANY: ${companyName}
 WEBSITE: ${website}
 CATEGORY: ${category || 'Not specified'}
 DATE TESTED: ${today}
-MODELS USED: ChatGPT (GPT-4o) · Claude (claude-sonnet-4-6) · Gemini (gemini-1.5-flash) · Perplexity (sonar, web-enabled)
+MODELS USED: ChatGPT (GPT-4o) · Claude (claude-sonnet-4-6) · Gemini (gemini-2.0-flash) · Perplexity (sonar, web-enabled)
 ${notes ? `ANALYST NOTES: ${notes}` : ''}
 
 GROUND TRUTH (from company website):
