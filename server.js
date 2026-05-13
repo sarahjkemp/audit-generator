@@ -552,7 +552,7 @@ const COMPANY_PROMPTS = [
 
 const PLATFORM_META = {
   chatgpt:    { label: 'ChatGPT (GPT-4o)',              model: 'gpt-4o' },
-  claude:     { label: 'Claude (claude-sonnet-4-7)',    model: 'claude-sonnet-4-7' },
+  claude:     { label: 'Claude (claude-opus-4-7)',    model: 'claude-opus-4-7' },
   gemini:     { label: 'Gemini (gemini-2.0-flash)',     model: 'gemini-2.0-flash' },
   perplexity: { label: 'Perplexity (sonar)',            model: 'sonar' },
 };
@@ -588,7 +588,7 @@ async function queryPlatform(platform, query) {
     }
     if (platform === 'claude') {
       const res = await client.messages.create({
-        model: 'claude-sonnet-4-7', max_tokens: 400,
+        model: 'claude-opus-4-7', max_tokens: 400,
         messages: [{ role: 'user', content: query }],
       });
       return res.content[0].text.trim();
@@ -647,7 +647,7 @@ COMPANY: ${companyName}
 WEBSITE: ${website}
 CATEGORY: ${category || 'Not specified'}
 DATE TESTED: ${today}
-MODELS USED: ChatGPT (GPT-4o) · Claude (claude-sonnet-4-7) · Gemini (gemini-2.0-flash) · Perplexity (sonar, web-enabled)
+MODELS USED: ChatGPT (GPT-4o) · Claude (claude-opus-4-7) · Gemini (gemini-2.0-flash) · Perplexity (sonar, web-enabled)
 ${notes ? `ANALYST NOTES: ${notes}` : ''}
 
 GROUND TRUTH (from company website):
