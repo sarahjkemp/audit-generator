@@ -232,11 +232,62 @@
 <body>
 
 <header>
-  <h1>AI Visibility & Narrative Audit Generator</h1>
-  <span>SJK Labs · Internal</span>
+  <h1>SJK Labs — Internal Tools</h1>
+  <span>AI Perception Audit · Visibility Audit · Scriptwriter Test</span>
 </header>
 
 <div class="container">
+
+  <!-- ── AI PERCEPTION AUDIT ─────────────────────────────────────────── -->
+
+  <div class="section" style="border:2px solid #111;">
+    <div class="section-label" style="color:#111;">AI Perception Audit — 50 Companies Study</div>
+    <p style="font-size:13px;color:#666;margin-bottom:20px;line-height:1.5;">Runs 6 buyer-style prompts against ChatGPT (GPT-4o), Claude, Gemini, and Perplexity. Scores each against the Scriptwriter Test: clarity, accuracy, differentiation, customer pain point, proof/credibility, and category fit.</p>
+    <div class="grid-2">
+      <div class="field">
+        <label>Company Name</label>
+        <input type="text" id="audit_company" placeholder="e.g. Doxis">
+      </div>
+      <div class="field">
+        <label>Website</label>
+        <input type="text" id="audit_website" placeholder="e.g. doxis.com">
+        <span class="hint">Homepage will be fetched for ground truth</span>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="field">
+        <label>Category</label>
+        <select id="audit_category">
+          <option value="">Select category</option>
+          <option value="PR / comms agency">PR / comms agency</option>
+          <option value="Consultancy">Consultancy</option>
+          <option value="B2B SaaS">B2B SaaS</option>
+          <option value="Founder-led expert business">Founder-led expert business</option>
+          <option value="AI / search / GEO firm">AI / search / GEO firm</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <div class="field" style="align-self:end;">
+        <span class="hint" style="display:block;">Takes 60–90 seconds. Queries all four platforms simultaneously.</span>
+      </div>
+    </div>
+    <div class="grid-1">
+      <div class="field">
+        <label>Analyst notes (optional)</label>
+        <textarea id="audit_notes" style="min-height:80px" placeholder="Anything that should inform the scoring — e.g. 'very niche, unlikely to be in AI training data' or 'well-funded and frequently covered in press'"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <button class="generate-btn" id="auditBtn" style="background:#111;" onclick="runCompanyAudit()">Run AI Perception Audit</button>
+
+  <div style="margin: 40px 0 16px; display: flex; align-items: center; gap: 12px;">
+    <div style="flex: 1; height: 1px; background: #e0e0de;"></div>
+    <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #bbb; white-space: nowrap;">AI Visibility & Narrative Audit</div>
+    <div style="flex: 1; height: 1px; background: #e0e0de;"></div>
+  </div>
+
+  <!-- ── VISIBILITY AUDIT ────────────────────────────────────────────── -->
 
   <div class="section">
     <div class="section-label">Client</div>
@@ -451,41 +502,6 @@
 
   <button class="generate-btn scriptwriter-btn" id="scriptwriterBtn" onclick="runScriptwriterTest()">Run Scriptwriter Test</button>
 
-  <div style="margin: 40px 0 16px; display: flex; align-items: center; gap: 12px;">
-    <div style="flex: 1; height: 1px; background: #e0e0de;"></div>
-    <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #bbb; white-space: nowrap;">AI Perception Audit — 50 Companies Study</div>
-    <div style="flex: 1; height: 1px; background: #e0e0de;"></div>
-  </div>
-
-  <div class="section">
-    <div class="section-label">Company Category</div>
-    <p style="font-size:13px;color:#666;margin-bottom:20px;line-height:1.5;">Runs 6 buyer-style prompts against ChatGPT (GPT-4o), Claude, Gemini, and Perplexity. Scores each against the Scriptwriter Test: clarity, accuracy, differentiation, customer pain point, proof/credibility, and category fit. Uses company name and website from the Client section above.</p>
-    <div class="grid-2">
-      <div class="field">
-        <label>Category</label>
-        <select id="audit_category">
-          <option value="">Select category</option>
-          <option value="PR / comms agency">PR / comms agency</option>
-          <option value="Consultancy">Consultancy</option>
-          <option value="B2B SaaS">B2B SaaS</option>
-          <option value="Founder-led expert business">Founder-led expert business</option>
-          <option value="AI / search / GEO firm">AI / search / GEO firm</option>
-          <option value="Other">Other</option>
-        </select>
-      </div>
-      <div class="field" style="align-self: end;">
-        <span class="hint" style="display:block;margin-top:4px;">Takes 60–90 seconds. Queries all four platforms simultaneously.</span>
-      </div>
-    </div>
-    <div class="grid-1">
-      <div class="field">
-        <label>Analyst notes (optional)</label>
-        <textarea id="audit_notes" style="min-height:80px" placeholder="Anything that should inform the scoring — e.g. 'very niche, unlikely to be in AI training data' or 'well-funded and frequently covered in press'"></textarea>
-      </div>
-    </div>
-  </div>
-
-  <button class="generate-btn" id="auditBtn" style="background:#1e3a4f;" onclick="runCompanyAudit()">Run AI Perception Audit</button>
 
   <div class="output-wrap" id="outputWrap">
     <div class="output-header">
@@ -719,11 +735,11 @@ function copyScriptwriterReport() {
 let auditMarkdown = '';
 
 async function runCompanyAudit() {
-  const clientName = document.getElementById('clientName').value.trim();
-  const website = document.getElementById('website').value.trim();
+  const clientName = document.getElementById('audit_company').value.trim();
+  const website = document.getElementById('audit_website').value.trim();
 
-  if (!clientName) { alert('Please enter the company name in the Client section above.'); return; }
-  if (!website)    { alert('Please enter the website URL in the Client section above.'); return; }
+  if (!clientName) { alert('Please enter the company name.'); return; }
+  if (!website)    { alert('Please enter the website URL.'); return; }
 
   const btn        = document.getElementById('auditBtn');
   const outputWrap = document.getElementById('auditOutputWrap');
