@@ -551,10 +551,10 @@ const COMPANY_PROMPTS = [
 ];
 
 const PLATFORM_META = {
-  chatgpt:    { label: 'ChatGPT (GPT-4o)',              model: 'gpt-4o' },
-  claude:     { label: 'Claude (claude-opus-4-7)',    model: 'claude-opus-4-7' },
-  gemini:     { label: 'Gemini (gemini-2.0-flash)',     model: 'gemini-2.0-flash' },
-  perplexity: { label: 'Perplexity (sonar)',            model: 'sonar' },
+  chatgpt:    { label: 'ChatGPT (GPT-4o, web search)',            model: 'gpt-4o-search-preview' },
+  claude:     { label: 'Claude (claude-sonnet-4-6, web search)',  model: 'claude-sonnet-4-6' },
+  gemini:     { label: 'Gemini (gemini-2.0-flash, web search)',   model: 'gemini-2.0-flash' },
+  perplexity: { label: 'Perplexity (sonar, web search)',          model: 'sonar' },
 };
 
 async function queryPlatform(platform, query) {
@@ -562,18 +562,21 @@ async function queryPlatform(platform, query) {
     if (platform === 'chatgpt') {
       if (!openaiClient) return '[OpenAI API key not configured]';
       const res = await openaiClient.chat.completions.create({
-        model: 'gpt-4o', messages: [{ role: 'user', content: query }], max_tokens: 400, temperature: 0.2,
+        model: 'gpt-4o-search-preview', messages: [{ role: 'user', content: query }], max_tokens: 400,
       });
       return res.choices[0].message.content.trim();
     }
     if (platform === 'gemini') {
       const apiKey = process.env.GEMINI_API_KEY;
       if (!apiKey) return '[Gemini API key not configured]';
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
       const gemRes = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ parts: [{ text: query }] }] }),
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: query }] }],
+          tools: [{ google_search: {} }],
+        }),
       });
       const gemData = await gemRes.json();
       if (!gemRes.ok) return `[Gemini error: ${gemData.error?.message || gemRes.status}]`;
@@ -588,10 +591,12 @@ async function queryPlatform(platform, query) {
     }
     if (platform === 'claude') {
       const res = await client.messages.create({
-        model: 'claude-opus-4-7', max_tokens: 400,
+        model: 'claude-sonnet-4-6', max_tokens: 800,
+        tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 3 }],
         messages: [{ role: 'user', content: query }],
       });
-      return res.content[0].text.trim();
+      const textBlocks = res.content.filter(b => b.type === 'text');
+      return textBlocks.map(b => b.text).join(' ').trim() || '[No text response]';
     }
   } catch (err) {
     return `[Error: ${err.message}]`;
