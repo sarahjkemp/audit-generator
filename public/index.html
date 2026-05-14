@@ -238,50 +238,7 @@
 
 <div class="container">
 
-  <!-- ── AI PERCEPTION AUDIT ─────────────────────────────────────────── -->
-
-  <div class="section" style="border:2px solid #111;">
-    <div class="section-label" style="color:#111;">AI Perception Audit — 50 Companies Study</div>
-    <p style="font-size:13px;color:#666;margin-bottom:20px;line-height:1.5;">Runs 6 buyer-style prompts against ChatGPT (GPT-4o), Claude, Gemini, and Perplexity. Scores each against the Scriptwriter Test: clarity, accuracy, differentiation, customer pain point, proof/credibility, and category fit.</p>
-    <div class="grid-2">
-      <div class="field">
-        <label>Company Name</label>
-        <input type="text" id="audit_company" placeholder="e.g. Doxis">
-      </div>
-      <div class="field">
-        <label>Website</label>
-        <input type="text" id="audit_website" placeholder="e.g. doxis.com">
-        <span class="hint">Homepage will be fetched for ground truth</span>
-      </div>
-    </div>
-    <div class="grid-2">
-      <div class="field">
-        <label>Category</label>
-        <select id="audit_category">
-          <option value="">Select category</option>
-          <option value="PR / comms agency">PR / comms agency</option>
-          <option value="Consultancy">Consultancy</option>
-          <option value="B2B SaaS">B2B SaaS</option>
-          <option value="Founder-led expert business">Founder-led expert business</option>
-          <option value="AI / search / GEO firm">AI / search / GEO firm</option>
-          <option value="Other">Other</option>
-        </select>
-      </div>
-      <div class="field" style="align-self:end;">
-        <span class="hint" style="display:block;">Takes 60–90 seconds. Queries all four platforms simultaneously.</span>
-      </div>
-    </div>
-    <div class="grid-1">
-      <div class="field">
-        <label>Analyst notes (optional)</label>
-        <textarea id="audit_notes" style="min-height:80px" placeholder="Anything that should inform the scoring — e.g. 'very niche, unlikely to be in AI training data' or 'well-funded and frequently covered in press'"></textarea>
-      </div>
-    </div>
-  </div>
-
-  <button class="generate-btn" id="auditBtn" style="background:#111;" onclick="runCompanyAudit()">Run AI Perception Audit</button>
-
-  <div style="margin: 40px 0 16px; display: flex; align-items: center; gap: 12px;">
+  <div style="margin: 0 0 16px; display: flex; align-items: center; gap: 12px;">
     <div style="flex: 1; height: 1px; background: #e0e0de;"></div>
     <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #bbb; white-space: nowrap;">AI Visibility & Narrative Audit</div>
     <div style="flex: 1; height: 1px; background: #e0e0de;"></div>
@@ -534,6 +491,55 @@
     </div>
     <div class="report" id="scriptwriterContent"></div>
   </div>
+
+  <!-- ── AI PERCEPTION AUDIT ─────────────────────────────────────────── -->
+
+  <div style="margin: 40px 0 16px; display: flex; align-items: center; gap: 12px;">
+    <div style="flex: 1; height: 1px; background: #e0e0de;"></div>
+    <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #bbb; white-space: nowrap;">AI Perception Audit</div>
+    <div style="flex: 1; height: 1px; background: #e0e0de;"></div>
+  </div>
+
+  <div class="section" style="border:2px solid #111;">
+    <div class="section-label" style="color:#111;">AI Perception Audit — 50 Companies Study</div>
+    <p style="font-size:13px;color:#666;margin-bottom:20px;line-height:1.5;">Runs 6 buyer-style prompts against ChatGPT, Claude, Gemini, and Perplexity — all web search enabled. Scores each against the Legibility Score framework.</p>
+    <div class="grid-2">
+      <div class="field">
+        <label>Company Name</label>
+        <input type="text" id="audit_company" placeholder="e.g. Doxis">
+      </div>
+      <div class="field">
+        <label>Website</label>
+        <input type="text" id="audit_website" placeholder="e.g. doxis.com">
+        <span class="hint">Homepage will be fetched for ground truth</span>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="field">
+        <label>Category</label>
+        <select id="audit_category">
+          <option value="">Select category</option>
+          <option value="PR / comms agency">PR / comms agency</option>
+          <option value="Consultancy">Consultancy</option>
+          <option value="B2B SaaS">B2B SaaS</option>
+          <option value="Founder-led expert business">Founder-led expert business</option>
+          <option value="AI / search / GEO firm">AI / search / GEO firm</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <div class="field" style="align-self:end;">
+        <span class="hint" style="display:block;">Takes 60–90 seconds. Queries all four platforms simultaneously.</span>
+      </div>
+    </div>
+    <div class="grid-1">
+      <div class="field">
+        <label>Analyst notes (optional)</label>
+        <textarea id="audit_notes" style="min-height:80px" placeholder="Anything that should inform the scoring — e.g. 'very niche, unlikely to be in AI training data' or 'well-funded and frequently covered in press'"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <button class="generate-btn" id="auditBtn" style="background:#111;" onclick="runCompanyAudit()">Run AI Perception Audit</button>
 
   <div class="output-wrap" id="auditOutputWrap">
     <div class="output-header">
