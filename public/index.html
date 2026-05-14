@@ -514,21 +514,9 @@
         <span class="hint">Homepage will be fetched for ground truth</span>
       </div>
     </div>
-    <div class="grid-2">
+    <div class="grid-1">
       <div class="field">
-        <label>Category</label>
-        <select id="audit_category">
-          <option value="">Select category</option>
-          <option value="PR / comms agency">PR / comms agency</option>
-          <option value="Consultancy">Consultancy</option>
-          <option value="B2B SaaS">B2B SaaS</option>
-          <option value="Founder-led expert business">Founder-led expert business</option>
-          <option value="AI / search / GEO firm">AI / search / GEO firm</option>
-          <option value="Other">Other</option>
-        </select>
-      </div>
-      <div class="field" style="align-self:end;">
-        <span class="hint" style="display:block;">Takes 60–90 seconds. Queries all four platforms simultaneously.</span>
+        <span class="hint">Takes 60–90 seconds. Queries all four platforms simultaneously.</span>
       </div>
     </div>
     <div class="grid-1">
@@ -768,8 +756,7 @@ async function runCompanyAudit() {
       body: JSON.stringify({
         companyName: clientName,
         website,
-        category: document.getElementById('audit_category').value,
-        notes:    document.getElementById('audit_notes').value.trim(),
+        notes: document.getElementById('audit_notes').value.trim(),
       }),
     });
     const data = await res.json();
