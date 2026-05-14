@@ -553,7 +553,7 @@ const COMPANY_PROMPTS = [
 const PLATFORM_META = {
   chatgpt:    { label: 'ChatGPT (GPT-4o, web search)',            model: 'gpt-4o-search-preview' },
   claude:     { label: 'Claude (claude-sonnet-4-6, web search)',  model: 'claude-sonnet-4-6' },
-  gemini:     { label: 'Gemini (gemini-2.0-flash, web search)',   model: 'gemini-2.0-flash' },
+  gemini:     { label: 'Gemini (gemini-2.5-flash, web search)',   model: 'gemini-2.5-flash' },
   perplexity: { label: 'Perplexity (sonar, web search)',          model: 'sonar' },
 };
 
@@ -569,7 +569,7 @@ async function queryPlatform(platform, query) {
     if (platform === 'gemini') {
       const apiKey = process.env.GEMINI_API_KEY;
       if (!apiKey) return '[Gemini API key not configured]';
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
       const gemRes = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -769,7 +769,7 @@ app.get('/test-gemini', async (req, res) => {
     const r = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts: [{ text: 'Say hello in one word.' }] }] }),
+      body: JSON.stringify({ contents: [{ parts: [{ text: 'Say hello in one word.' }] }], tools: [{ google_search: {} }] }),
     });
     const data = await r.json();
     res.json({ httpStatus: r.status, body: data });
