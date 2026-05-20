@@ -233,7 +233,7 @@ State your recommendation clearly, explain why in 2–3 sentences grounded in th
 Format in clean markdown. Use **bold** for key data points and key conclusions.`;
 
   try {
-    const message = await client.messages.create({
+    const message = await withRetry(() => client.messages.create({
       model: 'claude-opus-4-7',
       max_tokens: 5000,
       messages: [{
@@ -243,7 +243,7 @@ Format in clean markdown. Use **bold** for key data points and key conclusions.`
           { type: 'text', text: prompt },
         ],
       }],
-    });
+    }));
 
     fs.unlinkSync(req.file.path);
 
@@ -523,11 +523,11 @@ Button text:
 `;
 
   try {
-    const message = await client.messages.create({
+    const message = await withRetry(() => client.messages.create({
       model: 'claude-opus-4-7',
       max_tokens: 8000,
       messages: [{ role: 'user', content: prompt }],
-    });
+    }));
 
     const header = `# The Scriptwriter Test\n## ${clientName} | ${today} | SJK Labs\n*Internal — not for distribution*\n\n---\n`;
     const report = `${header}\n${message.content[0].text}`;
@@ -556,6 +556,21 @@ const PLATFORM_META = {
   gemini:     { label: 'Gemini (gemini-2.5-flash, web search)',   model: 'gemini-2.5-flash' },
   perplexity: { label: 'Perplexity (sonar, web search)',          model: 'sonar' },
 };
+
+async function withRetry(fn, retries = 4, baseDelay = 1500) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      const overloaded = err?.status === 529 || err?.error?.error?.type === 'overloaded_error';
+      if (overloaded && attempt < retries) {
+        await new Promise(r => setTimeout(r, baseDelay * (attempt + 1)));
+        continue;
+      }
+      throw err;
+    }
+  }
+}
 
 async function queryPlatform(platform, query) {
   try {
@@ -590,11 +605,11 @@ async function queryPlatform(platform, query) {
       return res.choices[0].message.content.trim();
     }
     if (platform === 'claude') {
-      const res = await client.messages.create({
+      const res = await withRetry(() => client.messages.create({
         model: 'claude-sonnet-4-6', max_tokens: 800,
         tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 3 }],
         messages: [{ role: 'user', content: query }],
-      });
+      }));
       const textBlocks = res.content.filter(b => b.type === 'text');
       return textBlocks.map(b => b.text).join(' ').trim() || '[No text response]';
     }
@@ -745,11 +760,11 @@ Name the diagnosis first, then give 2–3 concrete actions in priority order. Be
 Format in clean markdown. Fill in every table cell with a number.`;
 
   try {
-    const message = await client.messages.create({
+    const message = await withRetry(() => client.messages.create({
       model: 'claude-opus-4-7',
       max_tokens: 4000,
       messages: [{ role: 'user', content: scoringPrompt }],
-    });
+    }));
 
     res.json({ report: message.content[0].text, rawResponses: responses });
   } catch (error) {
@@ -989,11 +1004,11 @@ Name the diagnosis first, then give 2–3 concrete actions in priority order. Be
 Format in clean markdown. Fill in every table cell with a number.`;
 
   try {
-    const message = await client.messages.create({
+    const message = await withRetry(() => client.messages.create({
       model: 'claude-opus-4-7',
       max_tokens: 4000,
       messages: [{ role: 'user', content: scoringPrompt }],
-    });
+    }));
 
     res.json({ report: message.content[0].text, rawResponses: responses });
   } catch (error) {
