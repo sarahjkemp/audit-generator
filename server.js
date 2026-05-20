@@ -572,7 +572,7 @@ async function withRetry(fn, retries = 4, baseDelay = 1500) {
   }
 }
 
-async function queryPlatform(platform, query) {
+async function queryPlatform(platform, query, claudeModel = 'claude-sonnet-4-6') {
   try {
     if (platform === 'chatgpt') {
       if (!openaiClient) return '[OpenAI API key not configured]';
@@ -606,7 +606,7 @@ async function queryPlatform(platform, query) {
     }
     if (platform === 'claude') {
       const res = await withRetry(() => client.messages.create({
-        model: 'claude-sonnet-4-6', max_tokens: 800,
+        model: claudeModel, max_tokens: 800,
         tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 3 }],
         messages: [{ role: 'user', content: query }],
       }));
@@ -806,7 +806,7 @@ app.post('/person-audit', async (req, res) => {
 
   const [profileData, additionalData, ...platformResults] = await Promise.all([
     ...fetchJobs,
-    ...allTasks.map(t => queryPlatform(t.platform, PERSON_PROMPTS.find(p => p.key === t.key).query(personName))),
+    ...allTasks.map(t => queryPlatform(t.platform, PERSON_PROMPTS.find(p => p.key === t.key).query(personName), 'claude-haiku-4-5-20251001')),
   ]);
 
   // Organise results by platform → prompt key
@@ -1005,7 +1005,7 @@ Format in clean markdown. Fill in every table cell with a number.`;
 
   try {
     const message = await withRetry(() => client.messages.create({
-      model: 'claude-opus-4-7',
+      model: 'claude-haiku-4-5-20251001',
       max_tokens: 4000,
       messages: [{ role: 'user', content: scoringPrompt }],
     }));
