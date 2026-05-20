@@ -545,6 +545,101 @@
     <div class="report" id="auditContent"></div>
   </div>
 
+  <!-- ── PERSON LEGIBILITY AUDIT ────────────────────────────────────────── -->
+
+  <div style="margin: 40px 0 16px; display: flex; align-items: center; gap: 12px;">
+    <div style="flex: 1; height: 1px; background: #e0e0de;"></div>
+    <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #bbb; white-space: nowrap;">Person Legibility Audit</div>
+    <div style="flex: 1; height: 1px; background: #e0e0de;"></div>
+  </div>
+
+  <div class="section" style="border:2px solid #1c3830;">
+    <div class="section-label" style="color:#1c3830;">Person Legibility Audit</div>
+    <p style="font-size:13px;color:#666;margin-bottom:20px;line-height:1.5;">Runs 6 buyer/recruiter/collaborator-style prompts against ChatGPT, Claude, Gemini, and Perplexity. Scores each against the Person Legibility framework: protagonist, stakes, and dialogue.</p>
+    <div class="grid-2">
+      <div class="field">
+        <label>Person Name</label>
+        <input type="text" id="person_name" placeholder="e.g. Jane Smith">
+      </div>
+      <div class="field">
+        <label>Category</label>
+        <input type="text" id="person_category" placeholder="e.g. Founder, CMO, Consultant, Advisor">
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="field">
+        <label>Current Role</label>
+        <input type="text" id="person_role" placeholder="e.g. Chief Marketing Officer">
+      </div>
+      <div class="field">
+        <label>Company</label>
+        <input type="text" id="person_company" placeholder="e.g. Acme Corp">
+      </div>
+    </div>
+  </div>
+
+  <div class="section" style="border:2px solid #1c3830;">
+    <div class="section-label" style="color:#1c3830;">Profile URLs</div>
+    <p style="font-size:13px;color:#666;margin-bottom:20px;line-height:1.5;">The tool will attempt to fetch these. LinkedIn and most social platforms block access — paste the content manually in the field below if so.</p>
+    <div class="grid-2">
+      <div class="field">
+        <label>Primary Profile URL</label>
+        <input type="text" id="person_profileUrl" placeholder="e.g. personal site, company bio page">
+      </div>
+      <div class="field">
+        <label>Additional URL (optional)</label>
+        <input type="text" id="person_additionalUrl" placeholder="e.g. second page, podcast profile">
+      </div>
+    </div>
+  </div>
+
+  <div class="section" style="border:2px solid #1c3830;">
+    <div class="section-label" style="color:#1c3830;">Ground Truth — First-Party Materials</div>
+    <p style="font-size:13px;color:#666;margin-bottom:20px;line-height:1.5;">Paste any first-party profile material here: LinkedIn bio, website copy, speaker bio, articles, talks, or anything written by or about this person from primary sources. This is the benchmark AI is scored against.</p>
+    <div class="grid-1">
+      <div class="field">
+        <textarea id="person_groundTruth" style="min-height:160px;" placeholder="Paste LinkedIn summary, website bio, speaker page copy, article excerpts, interview transcripts — anything first-party. The more specific, the sharper the audit."></textarea>
+        <span class="hint">LinkedIn usually blocks scraping. Paste it here directly.</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="section" style="border:2px solid #1c3830;">
+    <div class="section-label" style="color:#1c3830;">Third-Party Signals (Optional)</div>
+    <div class="grid-1">
+      <div class="field">
+        <textarea id="person_thirdParty" style="min-height:100px;" placeholder="Press mentions, podcast appearances, company bios, speaking pages, endorsements, public references — anything from external sources about this person."></textarea>
+      </div>
+    </div>
+  </div>
+
+  <div class="section" style="border:2px solid #1c3830;">
+    <div class="section-label" style="color:#1c3830;">Analyst Notes (Optional)</div>
+    <div class="grid-1">
+      <div class="field">
+        <textarea id="person_notes" style="min-height:80px;" placeholder="e.g. 'Low profile, unlikely to be in training data', 'Well-known in VC circles but no public writing', 'LinkedIn is strong but no press coverage'"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <button class="generate-btn" id="personAuditBtn" style="background:#1c3830;" onclick="runPersonAudit()">Run Person Legibility Audit</button>
+
+  <div class="output-wrap" id="personAuditOutputWrap">
+    <div class="output-header">
+      <span class="output-label">Person Legibility Audit</span>
+      <div class="btn-row">
+        <button class="copy-btn" onclick="copyPersonAuditReport()">Copy as Markdown</button>
+        <button class="new-btn" onclick="startNew()">New Audit</button>
+      </div>
+    </div>
+    <div class="loading" id="personAuditLoadingMsg">
+      <div class="spinner"></div><br>
+      Querying ChatGPT, Claude, Gemini and Perplexity…<br>
+      <span style="color:#bbb;font-size:13px;">This takes 60–90 seconds.</span>
+    </div>
+    <div class="report" id="personAuditContent"></div>
+  </div>
+
 </div>
 
 <script>
@@ -644,9 +739,11 @@ function startNew() {
   document.getElementById('outputWrap').style.display = 'none';
   document.getElementById('scriptwriterOutputWrap').style.display = 'none';
   document.getElementById('auditOutputWrap').style.display = 'none';
+  document.getElementById('personAuditOutputWrap').style.display = 'none';
   rawMarkdown = '';
   scriptwriterMarkdown = '';
   auditMarkdown = '';
+  personAuditMarkdown = '';
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -779,6 +876,65 @@ function copyAuditReport() {
   if (!auditMarkdown) return;
   navigator.clipboard.writeText(auditMarkdown).then(() => {
     const btn = document.querySelector('#auditOutputWrap .copy-btn');
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy as Markdown', 2000);
+  });
+}
+
+let personAuditMarkdown = '';
+
+async function runPersonAudit() {
+  const personName = document.getElementById('person_name').value.trim();
+
+  if (!personName) { alert('Please enter the person\'s name.'); return; }
+
+  const btn        = document.getElementById('personAuditBtn');
+  const outputWrap = document.getElementById('personAuditOutputWrap');
+  const loadingMsg = document.getElementById('personAuditLoadingMsg');
+  const content    = document.getElementById('personAuditContent');
+
+  btn.disabled = true;
+  btn.textContent = 'Running…';
+  content.innerHTML = '';
+  loadingMsg.style.display = 'block';
+  outputWrap.style.display = 'block';
+  setTimeout(() => outputWrap.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+
+  try {
+    const res = await fetch('/person-audit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        personName,
+        currentRole:     document.getElementById('person_role').value.trim(),
+        company:         document.getElementById('person_company').value.trim(),
+        category:        document.getElementById('person_category').value.trim(),
+        profileUrl:      document.getElementById('person_profileUrl').value.trim(),
+        additionalUrl:   document.getElementById('person_additionalUrl').value.trim(),
+        groundTruthText: document.getElementById('person_groundTruth').value.trim(),
+        thirdPartyText:  document.getElementById('person_thirdParty').value.trim(),
+        notes:           document.getElementById('person_notes').value.trim(),
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Something went wrong.');
+    personAuditMarkdown = data.report;
+    loadingMsg.style.display = 'none';
+    content.innerHTML = marked.parse(personAuditMarkdown);
+  } catch (err) {
+    loadingMsg.style.display = 'none';
+    outputWrap.style.display = 'none';
+    alert('Error: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Run Person Legibility Audit';
+  }
+}
+
+function copyPersonAuditReport() {
+  if (!personAuditMarkdown) return;
+  navigator.clipboard.writeText(personAuditMarkdown).then(() => {
+    const btn = document.querySelector('#personAuditOutputWrap .copy-btn');
     btn.textContent = 'Copied!';
     setTimeout(() => btn.textContent = 'Copy as Markdown', 2000);
   });

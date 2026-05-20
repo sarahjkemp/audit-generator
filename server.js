@@ -758,6 +758,250 @@ Format in clean markdown. Fill in every table cell with a number.`;
   }
 });
 
+// ── Person Legibility Audit ──────────────────────────────────────────────────
+
+const PERSON_PROMPTS = [
+  { key: 'who_professionally', label: 'Who is this person professionally?',                   query: (n) => `Who is ${n} professionally?` },
+  { key: 'good_at',            label: 'What are they actually good at?',                       query: (n) => `What is ${n} actually good at professionally?` },
+  { key: 'high_stakes',        label: 'What kinds of high-stakes problems do they solve?',     query: (n) => `What kinds of high-stakes problems does ${n} solve?` },
+  { key: 'different',          label: 'What makes them different from others in similar roles?', query: (n) => `What makes ${n} different from others in similar roles?` },
+  { key: 'credibility',        label: 'Are they credible? Why or why not?',                   query: (n) => `Is ${n} credible? Why or why not?` },
+  { key: 'best_suited',        label: 'What kind of company or situation are they best suited to?', query: (n) => `What kind of company, founder, or situation is ${n} best suited to?` },
+];
+
+app.post('/person-audit', async (req, res) => {
+  const { personName, currentRole, company, category, profileUrl, additionalUrl, groundTruthText, thirdPartyText, notes } = req.body;
+  if (!personName) return res.status(400).json({ error: 'Person name is required.' });
+
+  const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+  const platforms = ['chatgpt', 'claude', 'gemini', 'perplexity'];
+
+  // Build all query tasks and fetch profile URLs in parallel
+  const allTasks = [];
+  for (const platform of platforms) {
+    for (const prompt of PERSON_PROMPTS) {
+      allTasks.push({ platform, key: prompt.key });
+    }
+  }
+
+  const fetchJobs = [
+    profileUrl    ? fetchPage(profileUrl, 6000)    : Promise.resolve(null),
+    additionalUrl ? fetchPage(additionalUrl, 4000) : Promise.resolve(null),
+  ];
+
+  const [profileData, additionalData, ...platformResults] = await Promise.all([
+    ...fetchJobs,
+    ...allTasks.map(t => queryPlatform(t.platform, PERSON_PROMPTS.find(p => p.key === t.key).query(personName))),
+  ]);
+
+  // Organise results by platform → prompt key
+  const responses = {};
+  platforms.forEach(p => { responses[p] = {}; });
+  allTasks.forEach((task, i) => { responses[task.platform][task.key] = platformResults[i]; });
+
+  // Build ground truth block
+  const groundTruthParts = [];
+  if (profileData?.accessible) {
+    const parts = [`Profile URL (${profileUrl}):`];
+    if (profileData.title)       parts.push(`Title: ${profileData.title}`);
+    if (profileData.description) parts.push(`Description: ${profileData.description}`);
+    parts.push(`Content:\n${profileData.text}`);
+    groundTruthParts.push(parts.join('\n'));
+  } else if (profileUrl) {
+    groundTruthParts.push(`Profile URL (${profileUrl}): Could not fetch — likely requires login or blocked.`);
+  }
+  if (additionalData?.accessible) {
+    const parts = [`Additional URL (${additionalUrl}):`];
+    if (additionalData.title)       parts.push(`Title: ${additionalData.title}`);
+    if (additionalData.description) parts.push(`Description: ${additionalData.description}`);
+    parts.push(`Content:\n${additionalData.text}`);
+    groundTruthParts.push(parts.join('\n'));
+  } else if (additionalUrl) {
+    groundTruthParts.push(`Additional URL (${additionalUrl}): Could not fetch.`);
+  }
+  if (groundTruthText) groundTruthParts.push(`FIRST-PARTY MATERIAL (analyst-provided):\n${groundTruthText}`);
+
+  const groundTruth = groundTruthParts.length
+    ? groundTruthParts.join('\n\n')
+    : '(No first-party materials provided — scoring will be based on what AI platforms return only)';
+
+  const thirdParty = thirdPartyText
+    ? `OPTIONAL THIRD-PARTY SIGNALS:\n${thirdPartyText}`
+    : '';
+
+  // Format raw responses block
+  let responsesBlock = '';
+  for (const prompt of PERSON_PROMPTS) {
+    responsesBlock += `\n**${prompt.label}**\n`;
+    for (const platform of platforms) {
+      responsesBlock += `${PLATFORM_META[platform].label}: ${responses[platform][prompt.key]}\n\n`;
+    }
+  }
+
+  const scoringPrompt = `You are a researcher at SJK Labs producing a structured AI perception audit of a professional person. This is entry ${personName} in the study "The Scriptwriter Test: Person Legibility Audit" — a structured analysis of how AI systems interpret and describe professionals when asked buyer-style, recruiter-style, collaborator-style, or operator-style questions.
+
+PERSON: ${personName}
+CURRENT ROLE: ${currentRole || 'Not specified'}
+COMPANY: ${company || 'Not specified'}
+CATEGORY: ${category || 'Not specified'}
+DATE TESTED: ${today}
+MODELS USED: ChatGPT (GPT-4o) · Claude (claude-opus-4-7) · Gemini (gemini-2.0-flash) · Perplexity (sonar, web-enabled)
+
+GROUND TRUTH (from first-party profile materials):
+${groundTruth}
+
+${thirdParty}
+
+RAW AI PLATFORM RESPONSES:
+${responsesBlock}
+
+${notes ? `ANALYST NOTES: ${notes}` : ''}
+
+---
+
+Produce the full audit report below. Be analytical and direct. Quote actual language from the profile materials and AI responses. Do not be generous with scores: 3 = partial/generic, 5 = accurate and specific. Fill in every table cell.
+
+Use the Scriptwriter Test lens throughout. This means assessing whether the person is narratively legible through:
+- protagonist: is it clear what kind of person/operator/expert this is?
+- stakes: is it clear what important problems they step into and why those problems matter?
+- dialogue: is there real-world language showing the problems, tradeoffs, and environments they work in, or only abstract profile language?
+
+Do not confuse prestige with legibility. A person can be low-profile but still highly legible. Score based on how accurately and usefully the AI system interprets the person, not how famous they are.
+
+---
+
+## ${personName}
+*${category || 'Professional'} · Tested ${today} · SJK Labs · Methodology: The Scriptwriter Test (Person Legibility Audit)*
+
+---
+
+### Who They Actually Are
+3–4 sentences from the ground truth only. What does this person actually do, what context do they operate in, what kinds of problems do they solve, and what seems to make them distinctive? Quote actual language from the source materials.
+
+Also assess:
+- who the protagonist appears to be
+- what the stakes of their work appear to be
+- whether the source material contains real dialogue/language from the world they operate in
+
+---
+
+### AI Responses
+
+#### Q1: Who is this person professionally?
+
+**ChatGPT:** [response]
+**Claude:** [response]
+**Gemini:** [response]
+**Perplexity:** [response]
+
+#### Q2: What are they actually good at?
+
+**ChatGPT:** [response]
+**Claude:** [response]
+**Gemini:** [response]
+**Perplexity:** [response]
+
+#### Q3: What kinds of high-stakes problems do they solve?
+
+**ChatGPT:** [response]
+**Claude:** [response]
+**Gemini:** [response]
+**Perplexity:** [response]
+
+#### Q4: What makes them different from others in similar roles?
+
+**ChatGPT:** [response]
+**Claude:** [response]
+**Gemini:** [response]
+**Perplexity:** [response]
+
+#### Q5: Are they credible? Why or why not?
+
+**ChatGPT:** [response]
+**Claude:** [response]
+**Gemini:** [response]
+**Perplexity:** [response]
+
+#### Q6: What kind of company, founder, or situation are they best suited to?
+
+**ChatGPT:** [response]
+**Claude:** [response]
+**Gemini:** [response]
+**Perplexity:** [response]
+
+Fill in each response with the actual platform response above (condense to 1–2 sentences where needed, preserving key language and any notable claims, assumptions, or errors).
+
+---
+
+### Person Legibility Scores
+
+Score 1–5 per dimension per platform:
+- 1 = completely fails (wrong, generic, or no useful information)
+- 2 = weak (role/category-level only)
+- 3 = partial (some accuracy, low specificity, weak protagonist/stakes/dialogue)
+- 4 = good (accurate, specific, reasonably useful)
+- 5 = strong (accurate, specific, differentiated, and narratively legible)
+
+| Dimension | ChatGPT | Claude | Gemini | Perplexity |
+|-----------|---------|--------|--------|-----------|
+| Clarity | | | | |
+| Accuracy | | | | |
+| Differentiation | | | | |
+| Problem-solution fit | | | | |
+| Proof / credibility | | | | |
+| Context fit | | | | |
+| **Total /30** | | | | |
+
+---
+
+### Analysis
+
+**Where AI gets it right:**
+What do the platforms accurately capture about this person? Cite specific responses.
+
+**Where AI gets it wrong:**
+What do they miss, distort, flatten, or genericise? Quote actual response language.
+
+**What's missing entirely:**
+Specific expertise, context, proof, protagonist, stakes, or dialogue from the ground truth that no AI platform surfaced.
+
+**The legibility gap:**
+One sentence: the clearest difference between how ${personName} actually presents and what AI understands about them.
+
+**One-line finding for dataset:**
+Format: "${personName} — [key finding about AI perception gap in one sentence]"
+
+---
+
+### Best Next Step
+
+Based on the scores, the legibility gap, and what is missing from AI responses, give one clear, specific recommendation. Consider:
+- Is this a visibility problem (not enough public signal for AI to find)?
+- Is this a narrative problem (the signal exists but the protagonist, stakes, or dialogue are weak or generic)?
+- Is this a proof problem (not enough concrete evidence, outcomes, or third-party validation)?
+- Is this a translation problem (real expertise exists, but is buried in technical language or role labels)?
+- Is this a maturity problem (the person is too early or under-documented to have a strong public footprint yet)?
+
+Name the diagnosis first, then give 2–3 concrete actions in priority order. Be direct. If the person is low-profile or early, say so plainly and explain what signal should be built first. Do not recommend things that don't follow from the evidence.
+
+---
+
+Format in clean markdown. Fill in every table cell with a number.`;
+
+  try {
+    const message = await client.messages.create({
+      model: 'claude-opus-4-7',
+      max_tokens: 4000,
+      messages: [{ role: 'user', content: scoringPrompt }],
+    });
+
+    res.json({ report: message.content[0].text, rawResponses: responses });
+  } catch (error) {
+    console.error('Person audit error:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ── Gemini diagnostic endpoint ───────────────────────────────────────────────
 
 app.get('/test-gemini', async (req, res) => {
