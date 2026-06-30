@@ -551,7 +551,7 @@ const COMPANY_PROMPTS = [
 ];
 
 const PLATFORM_META = {
-  chatgpt:    { label: 'ChatGPT (GPT-4o, web search)',            model: 'gpt-4o-search-preview' },
+  chatgpt:    { label: 'OpenAI (gpt-5.5 + web search)',           model: 'gpt-5.5' },
   claude:     { label: 'Claude (claude-sonnet-4-6, web search)',  model: 'claude-sonnet-4-6' },
   gemini:     { label: 'Gemini (gemini-2.5-flash, web search)',   model: 'gemini-2.5-flash' },
   perplexity: { label: 'Perplexity (sonar, web search)',          model: 'sonar' },
@@ -576,10 +576,19 @@ async function queryPlatform(platform, query, claudeModel = 'claude-sonnet-4-6')
   try {
     if (platform === 'chatgpt') {
       if (!openaiClient) return '[OpenAI API key not configured]';
-      const res = await openaiClient.chat.completions.create({
-        model: 'gpt-4o-search-preview', messages: [{ role: 'user', content: query }], max_tokens: 400,
+      const res = await openaiClient.responses.create({
+        model: 'gpt-5.5',
+        reasoning: { effort: 'low' },
+        text: { verbosity: 'low' },
+        tools: [{
+          type: 'web_search',
+          search_context_size: 'low',
+          external_web_access: true,
+        }],
+        tool_choice: 'required',
+        input: query,
       });
-      return res.choices[0].message.content.trim();
+      return res.output_text?.trim() || '[OpenAI returned empty response]';
     }
     if (platform === 'gemini') {
       const apiKey = process.env.GEMINI_API_KEY;
@@ -667,7 +676,7 @@ COMPANY: ${companyName}
 WEBSITE: ${website}
 CATEGORY: ${category || 'Not specified'}
 DATE TESTED: ${today}
-MODELS USED: ChatGPT (GPT-4o) · Claude (claude-opus-4-7) · Gemini (gemini-2.0-flash) · Perplexity (sonar, web-enabled)
+MODELS USED: OpenAI (gpt-5.5 + web search) · Claude (claude-sonnet-4-6 + web search) · Gemini (gemini-2.5-flash + Google Search) · Perplexity (sonar, web-enabled)
 ${notes ? `ANALYST NOTES: ${notes}` : ''}
 
 GROUND TRUTH (from company website):
@@ -696,7 +705,7 @@ Produce the full audit report below. Be analytical and direct. Quote actual lang
 
 ${COMPANY_PROMPTS.map((p, i) => `#### Q${i + 1}: ${p.label}
 
-**ChatGPT:** [response]
+**OpenAI:** [response]
 **Claude:** [response]
 **Gemini:** [response]
 **Perplexity:** [response]`).join('\n\n')}
@@ -714,7 +723,7 @@ Score 1–5 per dimension per platform:
 - 4 = good (accurate, some specificity)
 - 5 = strong (accurate, specific, differentiated)
 
-| Dimension | ChatGPT | Claude | Gemini | Perplexity |
+| Dimension | OpenAI | Claude | Gemini | Perplexity |
 |-----------|---------|--------|--------|-----------|
 | Clarity | | | | |
 | Accuracy | | | | |
