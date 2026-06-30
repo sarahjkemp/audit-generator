@@ -771,9 +771,15 @@ Format in clean markdown. Fill in every table cell with a number.`;
   try {
     const message = await withRetry(() => client.messages.create({
       model: 'claude-opus-4-7',
-      max_tokens: 4000,
+      max_tokens: 7000,
       messages: [{ role: 'user', content: scoringPrompt }],
     }));
+
+    if (message.stop_reason === 'max_tokens') {
+      return res.status(502).json({
+        error: 'Company audit output was truncated by the model token limit. Please rerun the audit.',
+      });
+    }
 
     res.json({ report: message.content[0].text, rawResponses: responses });
   } catch (error) {
