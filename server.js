@@ -24,6 +24,68 @@ const geminiClient = process.env.GEMINI_API_KEY
 app.use(express.static('public'));
 app.use(express.json());
 
+// ── Intelligence OS / Supabase integration ───────────────────────────────────
+const SB_URL = process.env.SUPABASE_URL       || '';
+const SB_KEY = process.env.SUPABASE_ANON_KEY  || '';
+
+async function sbRequest(method, path, body) {
+  if (!SB_URL || !SB_KEY) return null;
+  const r = await fetch(`${SB_URL}/rest/v1/${path}`, {
+    method,
+    headers: {
+      apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`,
+      'Content-Type': 'application/json', Prefer: 'return=representation',
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!r.ok) return null;
+  return r.json();
+}
+
+async function findOrCreateEntity(name) {
+  const rows = await sbRequest('GET', `entities?name=eq.${encodeURIComponent(name)}&select=id&limit=1`);
+  if (rows && rows.length) return rows[0].id;
+  const created = await sbRequest('POST', 'entities', { name, type: 'company' });
+  return created?.[0]?.id || null;
+}
+
+const OS_PLATFORM_MAP = { openai: 'openai', claude: 'anthropic', gemini: 'gemini', perplexity: 'perplexity' };
+const OS_DIMENSIONS   = ['Clarity', 'Accuracy', 'Differentiation', 'Customer pain point', 'Proof / credibility', 'Category fit'];
+const OS_DIM_PROMPTS  = {
+  'Clarity':             'What does this company do?',
+  'Accuracy':            'Who is it for?',
+  'Differentiation':     'What makes it different?',
+  'Customer pain point': 'What problem does it solve?',
+  'Proof / credibility': 'Is it credible?',
+  'Category fit':        'Who are its alternatives?',
+};
+
+async function fileScoresToOS(entityId, scores, rawResponses, signalDate) {
+  let filed = 0;
+  for (const [auditPlatform, dimScores] of Object.entries(scores)) {
+    const platform = OS_PLATFORM_MAP[auditPlatform] || auditPlatform;
+    const platformKey = Object.keys(rawResponses).find(k => k === auditPlatform) || auditPlatform;
+    const platformResponses = rawResponses[platformKey] || {};
+    const responseValues = Object.values(platformResponses);
+    for (let i = 0; i < OS_DIMENSIONS.length; i++) {
+      const dim = OS_DIMENSIONS[i];
+      const score = dimScores[dim];
+      if (score == null) continue;
+      const r = await sbRequest('POST', 'signals', {
+        entity_id:   entityId,
+        platform,
+        category:    dim,
+        prompt:      OS_DIM_PROMPTS[dim],
+        raw_answer:  responseValues[i] || '',
+        score,
+        signal_date: signalDate,
+      });
+      if (r) filed++;
+    }
+  }
+  return filed;
+}
+
 async function fetchPage(url, maxChars = 6000) {
   try {
     if (!url.startsWith('http')) url = 'https://' + url;
@@ -766,7 +828,13 @@ Name the diagnosis first, then give 2–3 concrete actions in priority order. Be
 
 ---
 
-Format in clean markdown. Fill in every table cell with a number.`;
+Format in clean markdown. Fill in every table cell with a number.
+
+After the complete report, output a JSON block as the very last thing — no text after it:
+\`\`\`json
+{"scores":{"openai":{"Clarity":0,"Accuracy":0,"Differentiation":0,"Customer pain point":0,"Proof / credibility":0,"Category fit":0},"claude":{"Clarity":0,"Accuracy":0,"Differentiation":0,"Customer pain point":0,"Proof / credibility":0,"Category fit":0},"gemini":{"Clarity":0,"Accuracy":0,"Differentiation":0,"Customer pain point":0,"Proof / credibility":0,"Category fit":0},"perplexity":{"Clarity":0,"Accuracy":0,"Differentiation":0,"Customer pain point":0,"Proof / credibility":0,"Category fit":0}}}
+\`\`\`
+Replace every 0 with the actual score from your table above.`;
 
   try {
     const message = await withRetry(() => client.messages.create({
@@ -781,7 +849,28 @@ Format in clean markdown. Fill in every table cell with a number.`;
       });
     }
 
-    res.json({ report: message.content[0].text, rawResponses: responses });
+    const rawReport = message.content[0].text;
+
+    // Extract JSON scores block and strip it from the displayed report
+    let scores = null;
+    const jsonMatch = rawReport.match(/```json\s*(\{[\s\S]*?\})\s*```\s*$/);
+    const cleanReport = jsonMatch ? rawReport.slice(0, jsonMatch.index).trim() : rawReport;
+    if (jsonMatch) {
+      try { scores = JSON.parse(jsonMatch[1]); } catch {}
+    }
+
+    // File to Intelligence OS if Supabase is configured and scores were parsed
+    let osFiled = 0;
+    if (scores && SB_URL && SB_KEY) {
+      const entityId = await findOrCreateEntity(companyName);
+      if (entityId) {
+        const today = new Date().toISOString().slice(0, 10);
+        osFiled = await fileScoresToOS(entityId, scores, responses, today);
+        console.log(`[OS] Filed ${osFiled} signal rows for ${companyName}`);
+      }
+    }
+
+    res.json({ report: cleanReport, rawResponses: responses, scores, osFiled });
   } catch (error) {
     console.error('Company audit error:', error.message);
     res.status(500).json({ error: error.message });
