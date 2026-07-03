@@ -535,6 +535,7 @@
       <div class="btn-row">
         <button class="copy-btn" onclick="copyAuditReport()">Copy as Markdown</button>
         <button class="new-btn" onclick="startNew()">New Audit</button>
+        <span id="osFiledBadge" style="display:none;font-size:12px;font-weight:600;color:#15803d;padding:6px 12px;background:#d1fae5;border-radius:6px;">✓ Saved to Intelligence OS</span>
       </div>
     </div>
     <div class="loading" id="auditLoadingMsg">
@@ -861,6 +862,9 @@ async function runCompanyAudit() {
     auditMarkdown = data.report;
     loadingMsg.style.display = 'none';
     content.innerHTML = marked.parse(auditMarkdown);
+    if (data.osFiled > 0) {
+      document.getElementById('osFiledBadge').style.display = 'inline-block';
+    }
   } catch (err) {
     loadingMsg.style.display = 'none';
     outputWrap.style.display = 'none';
