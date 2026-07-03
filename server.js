@@ -38,7 +38,11 @@ async function sbRequest(method, path, body) {
     },
     body: body ? JSON.stringify(body) : undefined,
   });
-  if (!r.ok) return null;
+  if (!r.ok) {
+    const errText = await r.text().catch(() => '');
+    console.error(`[OS] Supabase ${method} ${path} → ${r.status}: ${errText.slice(0, 300)}`);
+    return null;
+  }
   return r.json();
 }
 
