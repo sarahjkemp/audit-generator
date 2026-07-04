@@ -884,7 +884,7 @@ Replace every 0 with the actual score from your table above.`;
     const cleanReport = jsonMatch ? rawReport.slice(0, jsonMatch.index).trim() : rawReport;
     if (jsonMatch) {
       try {
-        scores = JSON.parse(jsonMatch[1]);
+        const parsed = JSON.parse(jsonMatch[1]); scores = parsed.scores || parsed;
         console.log('[OS] Scores parsed:', JSON.stringify(scores).slice(0, 200));
       } catch (e) {
         console.error('[OS] JSON parse error:', e.message, jsonMatch[1].slice(0, 200));
