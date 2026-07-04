@@ -76,8 +76,10 @@ function canonicalizeDim(key) {
 }
 
 async function fileScoresToOS(entityId, scores, rawResponses, signalDate) {
-  // Clear any existing signals for this entity+date so re-runs always produce clean data
-  await sbRequest('DELETE', `signals?entity_id=eq.${entityId}&signal_date=eq.${signalDate}`);
+  // Clear signals from the past 7 days for this entity so re-runs within a week replace rather than stack
+  const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 7);
+  const cutoffDate = cutoff.toISOString().slice(0, 10);
+  await sbRequest('DELETE', `signals?entity_id=eq.${entityId}&signal_date=gte.${cutoffDate}`);
 
   let filed = 0;
   for (const [auditPlatform, dimScores] of Object.entries(scores)) {
