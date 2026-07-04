@@ -76,7 +76,7 @@ function canonicalizeDim(key) {
 }
 
 async function fileScoresToOS(entityId, scores, rawResponses, signalDate) {
-  // Clear signals from the past 7 days for this entity so re-runs within a week replace rather than stack
+  // Delete signals from the past 7 days for this entity so re-runs within a week replace rather than stack
   const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 7);
   const cutoffDate = cutoff.toISOString().slice(0, 10);
   await sbRequest('DELETE', `signals?entity_id=eq.${entityId}&signal_date=gte.${cutoffDate}`);
@@ -95,7 +95,7 @@ async function fileScoresToOS(entityId, scores, rawResponses, signalDate) {
       let score = dimScores[dim];
       if (score == null) {
         const fuzzyKey = Object.keys(dimScores).find(k => canonicalizeDim(k) === dim);
-        if (fuzzyKey) { score = dimScores[fuzzyKey]; console.log(`[OS] Fuzzy-matched "\${fuzzyKey}" → "${dim}"`); }
+        if (fuzzyKey) { score = dimScores[fuzzyKey]; console.log(`[OS] Fuzzy-matched "${fuzzyKey}" → "${dim}"`); }
       }
       if (score == null) { console.warn(`[OS] No score for "${dim}" in ${auditPlatform}`); continue; }
       const r = await sbRequest('POST', 'signals', {
@@ -162,13 +162,10 @@ function formatChannelData(channels) {
       if (data.description) parts.push(`  Description: ${data.description}`);
       if (data.text) parts.push(`  Content excerpt: ${data.text.slice(0, 800)}`);
       if (data.notes) parts.push(`  Analyst notes: ${data.notes}`);
-      results.push(parts.join('
-'));
+      results.push(parts.join('\n'));
     }
   }
-  return results.join('
-
-');
+  return results.join('\n\n');
 }
 
 const METHODOLOGY = `## About This Audit
@@ -242,20 +239,11 @@ app.post('/generate', upload.single('semrushPdf'), async (req, res) => {
 
 The attached PDF is a Semrush AI Visibility Overview report for ${clientName}${website ? ` (${website})` : ''}. Read it carefully and extract all data: AI visibility score, mentions, citations, cited pages, monthly audience, platform scores (ChatGPT/AI Overview/Gemini/AI Mode), performing topics, performing prompts, topic opportunities, and prompt opportunities.
 
-${websiteContent?.accessible ? `WEBSITE (${website}):
-${websiteContent.description ? 'Meta description: ' + websiteContent.description + '
-' : ''}Content:
-${websiteContent.text}
-` : website ? `WEBSITE (${website}): Could not fetch.
-` : ''}
+${websiteContent?.accessible ? `WEBSITE (${website}):\n${websiteContent.description ? 'Meta description: ' + websiteContent.description + '\n' : ''}Content:\n${websiteContent.text}\n` : website ? `WEBSITE (${website}): Could not fetch.\n` : ''}
 
-${channelSummary ? `CHANNEL FOOTPRINT (auto-fetched where accessible):
-${channelSummary}
-` : ''}
+${channelSummary ? `CHANNEL FOOTPRINT (auto-fetched where accessible):\n${channelSummary}\n` : ''}
 
-${channelObservations ? `ANALYST CHANNEL OBSERVATIONS:
-${channelObservations}
-` : ''}
+${channelObservations ? `ANALYST CHANNEL OBSERVATIONS:\n${channelObservations}\n` : ''}
 
 ANALYST CONTEXT:
 What they do: ${industry || 'Not provided'}
@@ -348,16 +336,8 @@ Format in clean markdown. Use **bold** for key data points and key conclusions.`
 
     fs.unlinkSync(req.file.path);
 
-    const header = `# AI Visibility & Narrative Audit
-## ${clientName} | ${today} | SJK Labs
-*Confidential*
-
----
-`;
-    const report = `${header}
-${METHODOLOGY}
-
-${message.content[0].text}`;
+    const header = `# AI Visibility & Narrative Audit\n## ${clientName} | ${today} | SJK Labs\n*Confidential*\n\n---\n`;
+    const report = `${header}\n${METHODOLOGY}\n\n${message.content[0].text}`;
 
     res.json({ report });
   } catch (error) {
@@ -396,10 +376,8 @@ app.post('/scriptwriter', async (req, res) => {
     const parts = [`${label} (${data.url}):`];
     if (data.title) parts.push(`Title: ${data.title}`);
     if (data.description) parts.push(`Meta description: ${data.description}`);
-    parts.push(`Content:
-${data.text}`);
-    return parts.join('
-');
+    parts.push(`Content:\n${data.text}`);
+    return parts.join('\n');
   };
 
   const pagesContent = [
@@ -407,11 +385,7 @@ ${data.text}`);
     sw_aboutUrl ? formatPage('ABOUT PAGE', aboutPage) : null,
     sw_serviceUrl ? formatPage('SERVICE/METHODOLOGY PAGE', servicePage) : null,
     sw_proofUrl ? formatPage('PROOF/CASE STUDIES PAGE', proofPage) : null,
-  ].filter(Boolean).join('
-
----
-
-');
+  ].filter(Boolean).join('\n\n---\n\n');
 
   const prompt = `You are running The Scriptwriter Test — a structured narrative audit and full website rewrite.
 
@@ -644,14 +618,8 @@ Button text:
       messages: [{ role: 'user', content: prompt }],
     }));
 
-    const header = `# The Scriptwriter Test
-## ${clientName} | ${today} | SJK Labs
-*Internal — not for distribution*
-
----
-`;
-    const report = `${header}
-${message.content[0].text}`;
+    const header = `# The Scriptwriter Test\n## ${clientName} | ${today} | SJK Labs\n*Internal — not for distribution*\n\n---\n`;
+    const report = `${header}\n${message.content[0].text}`;
 
     res.json({ report });
   } catch (error) {
@@ -778,22 +746,16 @@ app.post('/company-audit', async (req, res) => {
     ? [
         websiteData.title       ? `Title: ${websiteData.title}` : null,
         websiteData.description ? `Meta description: ${websiteData.description}` : null,
-        `Content:
-${websiteData.text}`,
-      ].filter(Boolean).join('
-')
+        `Content:\n${websiteData.text}`,
+      ].filter(Boolean).join('\n')
     : `Website could not be fetched: ${websiteData?.error || 'unknown error'}`;
 
   // Format raw responses block for scoring prompt
   let responsesBlock = '';
   for (const prompt of COMPANY_PROMPTS) {
-    responsesBlock += `
-**${prompt.label}**
-`;
+    responsesBlock += `\n**${prompt.label}**\n`;
     for (const platform of platforms) {
-      responsesBlock += `${PLATFORM_META[platform].label}: ${responses[platform][prompt.key]}
-
-`;
+      responsesBlock += `${PLATFORM_META[platform].label}: ${responses[platform][prompt.key]}\n\n`;
     }
   }
 
@@ -835,9 +797,7 @@ ${COMPANY_PROMPTS.map((p, i) => `#### Q${i + 1}: ${p.label}
 **OpenAI:** [response]
 **Claude:** [response]
 **Gemini:** [response]
-**Perplexity:** [response]`).join('
-
-')}
+**Perplexity:** [response]`).join('\n\n')}
 
 Fill in each response with the actual platform response above (condense to 1–2 sentences where needed, preserving key language and any notable claims or errors).
 
@@ -998,10 +958,8 @@ app.post('/person-audit', async (req, res) => {
     const parts = [`Profile URL (${profileUrl}):`];
     if (profileData.title)       parts.push(`Title: ${profileData.title}`);
     if (profileData.description) parts.push(`Description: ${profileData.description}`);
-    parts.push(`Content:
-${profileData.text}`);
-    groundTruthParts.push(parts.join('
-'));
+    parts.push(`Content:\n${profileData.text}`);
+    groundTruthParts.push(parts.join('\n'));
   } else if (profileUrl) {
     groundTruthParts.push(`Profile URL (${profileUrl}): Could not fetch — likely requires login or blocked.`);
   }
@@ -1009,37 +967,27 @@ ${profileData.text}`);
     const parts = [`Additional URL (${additionalUrl}):`];
     if (additionalData.title)       parts.push(`Title: ${additionalData.title}`);
     if (additionalData.description) parts.push(`Description: ${additionalData.description}`);
-    parts.push(`Content:
-${additionalData.text}`);
-    groundTruthParts.push(parts.join('
-'));
+    parts.push(`Content:\n${additionalData.text}`);
+    groundTruthParts.push(parts.join('\n'));
   } else if (additionalUrl) {
     groundTruthParts.push(`Additional URL (${additionalUrl}): Could not fetch.`);
   }
-  if (groundTruthText) groundTruthParts.push(`FIRST-PARTY MATERIAL (analyst-provided):
-${groundTruthText}`);
+  if (groundTruthText) groundTruthParts.push(`FIRST-PARTY MATERIAL (analyst-provided):\n${groundTruthText}`);
 
   const groundTruth = groundTruthParts.length
-    ? groundTruthParts.join('
-
-')
+    ? groundTruthParts.join('\n\n')
     : '(No first-party materials provided — scoring will be based on what AI platforms return only)';
 
   const thirdParty = thirdPartyText
-    ? `OPTIONAL THIRD-PARTY SIGNALS:
-${thirdPartyText}`
+    ? `OPTIONAL THIRD-PARTY SIGNALS:\n${thirdPartyText}`
     : '';
 
   // Format raw responses block
   let responsesBlock = '';
   for (const prompt of PERSON_PROMPTS) {
-    responsesBlock += `
-**${prompt.label}**
-`;
+    responsesBlock += `\n**${prompt.label}**\n`;
     for (const platform of platforms) {
-      responsesBlock += `${PLATFORM_META[platform].label}: ${responses[platform][prompt.key]}
-
-`;
+      responsesBlock += `${PLATFORM_META[platform].label}: ${responses[platform][prompt.key]}\n\n`;
     }
   }
 
