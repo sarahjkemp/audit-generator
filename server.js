@@ -857,10 +857,17 @@ Replace every 0 with the actual score from your table above.`;
 
     // Extract JSON scores block and strip it from the displayed report
     let scores = null;
-    const jsonMatch = rawReport.match(/```json\s*(\{[\s\S]*?\})\s*```\s*$/);
+    const jsonMatch = rawReport.match(/```json\s*(\{[\s\S]*\})\s*```\s*$/);
     const cleanReport = jsonMatch ? rawReport.slice(0, jsonMatch.index).trim() : rawReport;
     if (jsonMatch) {
-      try { scores = JSON.parse(jsonMatch[1]); } catch {}
+      try {
+        scores = JSON.parse(jsonMatch[1]);
+        console.log('[OS] Scores parsed:', JSON.stringify(scores).slice(0, 200));
+      } catch (e) {
+        console.error('[OS] JSON parse error:', e.message, jsonMatch[1].slice(0, 200));
+      }
+    } else {
+      console.warn('[OS] No JSON scores block found in report');
     }
 
     // File to Intelligence OS if Supabase is configured and scores were parsed
