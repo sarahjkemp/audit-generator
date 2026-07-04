@@ -64,17 +64,38 @@ const OS_DIM_PROMPTS  = {
   'Category fit':        'Who are its alternatives?',
 };
 
+function canonicalizeDim(key) {
+  const k = key.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (k === 'clarity') return 'Clarity';
+  if (k === 'accuracy') return 'Accuracy';
+  if (k === 'differentiation') return 'Differentiation';
+  if (k.includes('pain') || k.includes('problem')) return 'Customer pain point';
+  if (k.includes('proof') || k.includes('credib')) return 'Proof / credibility';
+  if (k.includes('category') || k.includes('fit') || k.includes('alternativ')) return 'Category fit';
+  return key;
+}
+
 async function fileScoresToOS(entityId, scores, rawResponses, signalDate) {
+  // Clear any existing signals for this entity+date so re-runs always produce clean data
+  await sbRequest('DELETE', `signals?entity_id=eq.${entityId}&signal_date=eq.${signalDate}`);
+
   let filed = 0;
   for (const [auditPlatform, dimScores] of Object.entries(scores)) {
     const platform = OS_PLATFORM_MAP[auditPlatform] || auditPlatform;
     const platformKey = Object.keys(rawResponses).find(k => k === auditPlatform) || auditPlatform;
     const platformResponses = rawResponses[platformKey] || {};
     const responseValues = Object.values(platformResponses);
+
+    console.log(`[OS] ${auditPlatform} score keys: ${Object.keys(dimScores).join(', ')}`);
+
     for (let i = 0; i < OS_DIMENSIONS.length; i++) {
       const dim = OS_DIMENSIONS[i];
-      const score = dimScores[dim];
-      if (score == null) continue;
+      let score = dimScores[dim];
+      if (score == null) {
+        const fuzzyKey = Object.keys(dimScores).find(k => canonicalizeDim(k) === dim);
+        if (fuzzyKey) { score = dimScores[fuzzyKey]; console.log(`[OS] Fuzzy-matched "\${fuzzyKey}" → "${dim}"`); }
+      }
+      if (score == null) { console.warn(`[OS] No score for "${dim}" in ${auditPlatform}`); continue; }
       const r = await sbRequest('POST', 'signals', {
         entity_id:   entityId,
         platform,
@@ -139,10 +160,13 @@ function formatChannelData(channels) {
       if (data.description) parts.push(`  Description: ${data.description}`);
       if (data.text) parts.push(`  Content excerpt: ${data.text.slice(0, 800)}`);
       if (data.notes) parts.push(`  Analyst notes: ${data.notes}`);
-      results.push(parts.join('\n'));
+      results.push(parts.join('
+'));
     }
   }
-  return results.join('\n\n');
+  return results.join('
+
+');
 }
 
 const METHODOLOGY = `## About This Audit
@@ -216,11 +240,20 @@ app.post('/generate', upload.single('semrushPdf'), async (req, res) => {
 
 The attached PDF is a Semrush AI Visibility Overview report for ${clientName}${website ? ` (${website})` : ''}. Read it carefully and extract all data: AI visibility score, mentions, citations, cited pages, monthly audience, platform scores (ChatGPT/AI Overview/Gemini/AI Mode), performing topics, performing prompts, topic opportunities, and prompt opportunities.
 
-${websiteContent?.accessible ? `WEBSITE (${website}):\n${websiteContent.description ? 'Meta description: ' + websiteContent.description + '\n' : ''}Content:\n${websiteContent.text}\n` : website ? `WEBSITE (${website}): Could not fetch.\n` : ''}
+${websiteContent?.accessible ? `WEBSITE (${website}):
+${websiteContent.description ? 'Meta description: ' + websiteContent.description + '
+' : ''}Content:
+${websiteContent.text}
+` : website ? `WEBSITE (${website}): Could not fetch.
+` : ''}
 
-${channelSummary ? `CHANNEL FOOTPRINT (auto-fetched where accessible):\n${channelSummary}\n` : ''}
+${channelSummary ? `CHANNEL FOOTPRINT (auto-fetched where accessible):
+${channelSummary}
+` : ''}
 
-${channelObservations ? `ANALYST CHANNEL OBSERVATIONS:\n${channelObservations}\n` : ''}
+${channelObservations ? `ANALYST CHANNEL OBSERVATIONS:
+${channelObservations}
+` : ''}
 
 ANALYST CONTEXT:
 What they do: ${industry || 'Not provided'}
@@ -313,8 +346,16 @@ Format in clean markdown. Use **bold** for key data points and key conclusions.`
 
     fs.unlinkSync(req.file.path);
 
-    const header = `# AI Visibility & Narrative Audit\n## ${clientName} | ${today} | SJK Labs\n*Confidential*\n\n---\n`;
-    const report = `${header}\n${METHODOLOGY}\n\n${message.content[0].text}`;
+    const header = `# AI Visibility & Narrative Audit
+## ${clientName} | ${today} | SJK Labs
+*Confidential*
+
+---
+`;
+    const report = `${header}
+${METHODOLOGY}
+
+${message.content[0].text}`;
 
     res.json({ report });
   } catch (error) {
@@ -353,8 +394,10 @@ app.post('/scriptwriter', async (req, res) => {
     const parts = [`${label} (${data.url}):`];
     if (data.title) parts.push(`Title: ${data.title}`);
     if (data.description) parts.push(`Meta description: ${data.description}`);
-    parts.push(`Content:\n${data.text}`);
-    return parts.join('\n');
+    parts.push(`Content:
+${data.text}`);
+    return parts.join('
+');
   };
 
   const pagesContent = [
@@ -362,7 +405,11 @@ app.post('/scriptwriter', async (req, res) => {
     sw_aboutUrl ? formatPage('ABOUT PAGE', aboutPage) : null,
     sw_serviceUrl ? formatPage('SERVICE/METHODOLOGY PAGE', servicePage) : null,
     sw_proofUrl ? formatPage('PROOF/CASE STUDIES PAGE', proofPage) : null,
-  ].filter(Boolean).join('\n\n---\n\n');
+  ].filter(Boolean).join('
+
+---
+
+');
 
   const prompt = `You are running The Scriptwriter Test — a structured narrative audit and full website rewrite.
 
@@ -595,8 +642,14 @@ Button text:
       messages: [{ role: 'user', content: prompt }],
     }));
 
-    const header = `# The Scriptwriter Test\n## ${clientName} | ${today} | SJK Labs\n*Internal — not for distribution*\n\n---\n`;
-    const report = `${header}\n${message.content[0].text}`;
+    const header = `# The Scriptwriter Test
+## ${clientName} | ${today} | SJK Labs
+*Internal — not for distribution*
+
+---
+`;
+    const report = `${header}
+${message.content[0].text}`;
 
     res.json({ report });
   } catch (error) {
@@ -723,16 +776,22 @@ app.post('/company-audit', async (req, res) => {
     ? [
         websiteData.title       ? `Title: ${websiteData.title}` : null,
         websiteData.description ? `Meta description: ${websiteData.description}` : null,
-        `Content:\n${websiteData.text}`,
-      ].filter(Boolean).join('\n')
+        `Content:
+${websiteData.text}`,
+      ].filter(Boolean).join('
+')
     : `Website could not be fetched: ${websiteData?.error || 'unknown error'}`;
 
   // Format raw responses block for scoring prompt
   let responsesBlock = '';
   for (const prompt of COMPANY_PROMPTS) {
-    responsesBlock += `\n**${prompt.label}**\n`;
+    responsesBlock += `
+**${prompt.label}**
+`;
     for (const platform of platforms) {
-      responsesBlock += `${PLATFORM_META[platform].label}: ${responses[platform][prompt.key]}\n\n`;
+      responsesBlock += `${PLATFORM_META[platform].label}: ${responses[platform][prompt.key]}
+
+`;
     }
   }
 
@@ -774,7 +833,9 @@ ${COMPANY_PROMPTS.map((p, i) => `#### Q${i + 1}: ${p.label}
 **OpenAI:** [response]
 **Claude:** [response]
 **Gemini:** [response]
-**Perplexity:** [response]`).join('\n\n')}
+**Perplexity:** [response]`).join('
+
+')}
 
 Fill in each response with the actual platform response above (condense to 1–2 sentences where needed, preserving key language and any notable claims or errors).
 
@@ -935,8 +996,10 @@ app.post('/person-audit', async (req, res) => {
     const parts = [`Profile URL (${profileUrl}):`];
     if (profileData.title)       parts.push(`Title: ${profileData.title}`);
     if (profileData.description) parts.push(`Description: ${profileData.description}`);
-    parts.push(`Content:\n${profileData.text}`);
-    groundTruthParts.push(parts.join('\n'));
+    parts.push(`Content:
+${profileData.text}`);
+    groundTruthParts.push(parts.join('
+'));
   } else if (profileUrl) {
     groundTruthParts.push(`Profile URL (${profileUrl}): Could not fetch — likely requires login or blocked.`);
   }
@@ -944,27 +1007,37 @@ app.post('/person-audit', async (req, res) => {
     const parts = [`Additional URL (${additionalUrl}):`];
     if (additionalData.title)       parts.push(`Title: ${additionalData.title}`);
     if (additionalData.description) parts.push(`Description: ${additionalData.description}`);
-    parts.push(`Content:\n${additionalData.text}`);
-    groundTruthParts.push(parts.join('\n'));
+    parts.push(`Content:
+${additionalData.text}`);
+    groundTruthParts.push(parts.join('
+'));
   } else if (additionalUrl) {
     groundTruthParts.push(`Additional URL (${additionalUrl}): Could not fetch.`);
   }
-  if (groundTruthText) groundTruthParts.push(`FIRST-PARTY MATERIAL (analyst-provided):\n${groundTruthText}`);
+  if (groundTruthText) groundTruthParts.push(`FIRST-PARTY MATERIAL (analyst-provided):
+${groundTruthText}`);
 
   const groundTruth = groundTruthParts.length
-    ? groundTruthParts.join('\n\n')
+    ? groundTruthParts.join('
+
+')
     : '(No first-party materials provided — scoring will be based on what AI platforms return only)';
 
   const thirdParty = thirdPartyText
-    ? `OPTIONAL THIRD-PARTY SIGNALS:\n${thirdPartyText}`
+    ? `OPTIONAL THIRD-PARTY SIGNALS:
+${thirdPartyText}`
     : '';
 
   // Format raw responses block
   let responsesBlock = '';
   for (const prompt of PERSON_PROMPTS) {
-    responsesBlock += `\n**${prompt.label}**\n`;
+    responsesBlock += `
+**${prompt.label}**
+`;
     for (const platform of platforms) {
-      responsesBlock += `${PLATFORM_META[platform].label}: ${responses[platform][prompt.key]}\n\n`;
+      responsesBlock += `${PLATFORM_META[platform].label}: ${responses[platform][prompt.key]}
+
+`;
     }
   }
 
