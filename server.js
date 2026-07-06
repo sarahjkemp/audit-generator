@@ -901,6 +901,12 @@ Replace every 0 with the actual score from your table above.`;
         const today = new Date().toISOString().slice(0, 10);
         osFiled = await fileScoresToOS(entityId, scores, responses, today);
         console.log(`[OS] Filed ${osFiled} signal rows for ${companyName}`);
+        // Store full audit report text
+        await sbRequest('DELETE', `audit_reports?entity_id=eq.${entityId}&report_date=eq.${today}`);
+        const rpt = await sbRequest('POST', 'audit_reports', {
+          entity_id: entityId, report_date: today, report_text: cleanReport,
+        });
+        console.log(`[OS] Report stored: ${rpt ? 'yes' : 'no'}`);
       }
     }
 
