@@ -23,11 +23,21 @@ An audit result is signed before the browser receives it; pitch generation rejec
 altered results, inaccessible ground truth, mismatched company identities and
 audits with no complete platform. AI errors do not become low business scores.
 Generated drafts require an exact audit evidence excerpt and are limited to five
-sentences and 120 words; overlong output is rewritten once, not blindly truncated.
-For reliable budget-model drafting, the prompt targets three short sentences and
-66 words. It supplies bounded, numbered excerpts rather than a full report; the
-server maps the chosen excerpt index back to literal audit text and still checks
-the five-sentence/120-word limits. Neither evidence nor a long pitch is fabricated.
+sentences and 220 words; overlong output is rewritten once, not blindly truncated.
+**Owner style update 2026-09-16:** generate five explanatory sentences, targeting
+140–190 words: greeting/test/specific dated finding, commercial significance,
+genuine personal or positioning connection, existing proof versus sampled
+understanding, and a low-pressure invitation. Funding supports context instead of
+being a generic opening. Optional recipient name/context is device-local and sent
+only to the pitch writer, never the audit or web search. Missing names use [Name];
+missing context must not lead to invented interests, posts or relationships.
+Bounded numbered company-description excerpts, website proof quotes and all complete
+signed v2 answer sets support the draft; speculative report analysis is excluded.
+Actual answers override report speculation. Namesake ambiguity is not automatically
+failure to identify a company, and name-only questions never imply a URL was supplied.
+The server requires five real sentences, the correct greeting and a valid literal
+evidence index. No premium-model fallback or additional web queries are introduced.
+Old-format drafts and drafts with changed recipient details need regeneration.
 
 The saver targets the existing Supabase `audit_reports` and `signals` tables.
 The report's hidden markdown footer preserves the complete signed snapshot for
