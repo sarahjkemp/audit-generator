@@ -25,9 +25,14 @@ audits with no complete platform. AI errors do not become low business scores.
 Generated drafts require an exact audit evidence excerpt and are limited to five
 sentences and 120 words; overlong output is rewritten once, not blindly truncated.
 
-Audits are durable in the existing Supabase `audit_reports` and `signals` tables.
+The saver targets the existing Supabase `audit_reports` and `signals` tables.
 The report's hidden markdown footer preserves the complete signed snapshot for
-cross-device loading without a new database or schema change. Scores use stable
+cross-device loading. **Activation blocker confirmed 2026-09-16:** the existing
+`audit_reports_entity_date` unique constraint rejects a second company report on
+the same day. Do not remove/delete existing reports to bypass it. Database-admin
+access is still needed to resolve this safely and verify durable live storage.
+The radar returns `OS_DAILY_REPORT_LIMIT`, not a false saved receipt.
+Scores use stable
 per-audit IDs and question keys, never response array positions. Only readable
 website benchmarks and fully tested platforms produce scored signal rows;
 unavailable/untested answers and null scores remain in the archived snapshot.
@@ -40,6 +45,45 @@ Editable outreach drafts remain device-local, as do temporary unsaved audit copi
 without changing existing notes/contact statuses.
 The dashboard never sends LinkedIn messages automatically.
 
+## Budget company-model profile — checked 2026-09-16
+
+`company-perception.js` is the single source of truth for company perception and
+radar pitch models. OpenAI uses `gpt-5.6-luna` with reasoning effort set to `none`,
+live web search required, low search context, one tool call and a 700-token answer
+ceiling. Google uses the lower-priced stable `gemini-3.1-flash-lite`, minimal
+thinking, Google Search grounding and a 700-token answer ceiling. The cheaper
+2.5 Flash-Lite was rejected by the live key as unavailable to new users; 3.1
+Flash-Lite remains documented as supported, cheaper than 3.5 Flash-Lite. Claude uses
+`claude-haiku-4-5-20251001`, basic web search, at most one search per buyer question
+and a 700-token answer ceiling. Sonar retains low search context and a 500-token
+ceiling. Six buyer questions remain independent on each platform; batching them
+into a single prompt would change the audit methodology.
+
+Company-only requests have explicit timeouts and disable hidden SDK retries;
+Claude can retry one overload response, and an invalid pitch can be rewritten
+once. No paid query is silently rerun when it produces an inconclusive answer.
+Live checks on 2026-09-16 verified grounded OpenAI, Haiku and Sonar answers.
+Gemini's active key still returns depleted prepaid credits despite the reported
+top-up; its grounded completion is pending a positive balance on that key's project.
+
+Haiku replaces Opus as company report writer and Sonnet as radar pitch writer.
+There is no premium fallback. New reports identify the tested API models; they do
+not claim to reproduce the consumer ChatGPT/Gemini/Claude apps. Grounding failures
+and truncated responses are untested, not business weaknesses. The shared legacy
+person lookup, visibility/Semrush and rewrite defaults have not been changed.
+
+Official sources:
+- https://developers.openai.com/api/docs/models/gpt-5.6-luna
+- https://developers.openai.com/api/docs/guides/tools-web-search
+- https://ai.google.dev/gemini-api/docs/pricing
+- https://ai.google.dev/gemini-api/docs/deprecations
+- https://platform.claude.com/docs/en/about-claude/pricing
+- https://platform.claude.com/docs/en/agents-and-tools/tool-use/web-search-tool
+- https://docs.perplexity.ai/docs/getting-started/pricing
+
+Token list prices are not the complete bill: provider search fees and retrieved
+search-result tokens also apply. Do not promise a fixed per-audit cost.
+
 ## Checks
 
 `node --check server.js`
@@ -47,6 +91,8 @@ The dashboard never sends LinkedIn messages automatically.
 `node --test radar-integration.test.js`
 
 `node --test radar-os-store.test.js`
+
+`node --test company-perception.test.js`
 
 The radar's existing build and rendered-worker tests cover its fixed-destination
 server proxy, published company identity, private-note exclusion, cross-origin

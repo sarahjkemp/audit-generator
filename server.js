@@ -4,6 +4,7 @@ const Anthropic = require('@anthropic-ai/sdk');
 const OpenAI = require('openai');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const fs = require('fs');
+const { MODELS: COMPANY_MODELS, LABELS: COMPANY_LABELS, MODEL_SUMMARY: COMPANY_MODEL_SUMMARY, queryCompanyPlatform } = require('./company-perception');
 
 const app = express();
 const upload = multer({ dest: 'uploads/', limits: { fileSize: 25 * 1024 * 1024 } });
@@ -734,7 +735,9 @@ async function runCompanyAudit(req, res, { fileToOS = true, fetchWebsite = fetch
 
   const [websiteData, ...platformResults] = await Promise.all([
     fetchWebsite(website, 6000),
-    ...allTasks.map(t => queryPlatform(t.platform, COMPANY_PROMPTS.find(p => p.key === t.key).query(companyName))),
+    ...allTasks.map(t => queryCompanyPlatform({ platform: t.platform,
+      query: COMPANY_PROMPTS.find(p => p.key === t.key).query(companyName),
+      openaiClient, perplexityClient, client, withRetry, geminiKey: process.env.GEMINI_API_KEY })),
   ]);
 
   // Organise results by platform → prompt key
@@ -755,7 +758,7 @@ async function runCompanyAudit(req, res, { fileToOS = true, fetchWebsite = fetch
   for (const prompt of COMPANY_PROMPTS) {
     responsesBlock += `\n**${prompt.label}**\n`;
     for (const platform of platforms) {
-      responsesBlock += `${PLATFORM_META[platform].label}: ${responses[platform][prompt.key]}\n\n`;
+      responsesBlock += `${COMPANY_LABELS[platform]}: ${responses[platform][prompt.key]}\n\n`;
     }
   }
 
@@ -766,7 +769,7 @@ COMPANY: ${companyName}
 WEBSITE: ${website}
 CATEGORY: ${category || 'Not specified'}
 DATE TESTED: ${today}
-MODELS USED: OpenAI (gpt-5.5 + web search) · Claude (claude-sonnet-4-6 + web search) · Gemini (gemini-2.5-flash + Google Search) · Perplexity (sonar, web-enabled)
+MODELS USED: ${COMPANY_MODEL_SUMMARY}
 ${notes ? `ANALYST NOTES: ${notes}` : ''}
 
 GROUND TRUTH (from company website):
@@ -866,10 +869,10 @@ Replace every 0 with the actual score from your table above.`;
 
   try {
     const message = await withRetry(() => client.messages.create({
-      model: 'claude-opus-4-7',
+      model: COMPANY_MODELS.report,
       max_tokens: 7000,
       messages: [{ role: 'user', content: scoringPrompt }],
-    }));
+    }, { timeout: 90000, maxRetries: 0 }), 1);
 
     if (message.stop_reason === 'max_tokens') {
       return res.status(502).json({
@@ -882,7 +885,8 @@ Replace every 0 with the actual score from your table above.`;
     // Extract JSON scores block and strip it from the displayed report
     let scores = null;
     const jsonMatch = rawReport.match(/```json\s*(\{[\s\S]*\})\s*```\s*$/);
-    const cleanReport = jsonMatch ? rawReport.slice(0, jsonMatch.index).trim() : rawReport;
+    const modelNote = `*API models tested: ${COMPANY_MODEL_SUMMARY}. Report writer: ${COMPANY_MODELS.report}. This samples API models, not the consumer ChatGPT, Claude or Gemini apps.*`;
+    const cleanReport = `${modelNote}\n\n${jsonMatch ? rawReport.slice(0, jsonMatch.index).trim() : rawReport}`;
     if (jsonMatch) {
       try {
         const parsed = JSON.parse(jsonMatch[1]); scores = parsed.scores || parsed;
