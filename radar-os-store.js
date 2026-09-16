@@ -55,14 +55,6 @@ function createOSStore({ url = process.env.SUPABASE_URL, key = process.env.SUPAB
       body: body === undefined ? undefined : JSON.stringify(body) });
     if (!response.ok) {
       console.warn('[Radar OS] Database operation failed', table, method, response.status);
-      if (table === 'audit_reports' && response.status === 409) {
-        const data = await response.json().catch(() => ({}));
-        if (data.code === '23505' && /audit_reports_entity_date/.test(data.message || '')) {
-          const error = new Error('Your OS currently allows one report per company per day. A Supabase schema update is required to preserve and save additional same-day audits. This paid result is retained; do not rerun it.');
-          error.code = 'OS_DAILY_REPORT_LIMIT';
-          throw error;
-        }
-      }
       throw new Error('Supabase could not complete the save or verification.');
     }
     return response.json();
@@ -77,9 +69,10 @@ function createOSStore({ url = process.env.SUPABASE_URL, key = process.env.SUPAB
     if (rows.length !== 1 || !rows[0]?.id) throw new Error('Company identity could not be matched in the OS.');
     return rows[0].id;
   }
-  async function verify(audit, entityId) {
-    const reports = await rest('audit_reports', 'GET', { id: `eq.${audit.auditId}`, select: 'id,entity_id,report_text' });
+  async function verify(audit, entityId, reportId) {
+    const reports = await rest('audit_reports', 'GET', { id: `eq.${reportId}`, select: 'id,entity_id,report_date,report_text' });
     if (reports.length !== 1 || reports[0].entity_id !== entityId || reports[0].report_text !== reportText(audit)) throw new Error('The complete report was not verified.');
+    if (reports[0].report_date !== audit.completedAt.slice(0,10)) throw new Error('The report date was not verified.');
     const expected = signalRows(audit, entityId);
     if (expected.length) {
       const rows = await rest('signals', 'GET', { id: `in.(${expected.map(r=>r.id).join(',')})`, select: 'id,entity_id,platform,category,prompt,raw_answer,score,signal_date' });
@@ -88,33 +81,62 @@ function createOSStore({ url = process.env.SUPABASE_URL, key = process.env.SUPAB
         return !row || Object.entries(wanted).some(([k,v])=>row[k] !== v);
       })) throw new Error('Some scores or answers were not verified.');
     }
-    return { status: 'saved', entityId, auditId: audit.auditId, verifiedAt: new Date().toISOString(), signalsSaved: expected.length,
+    return { status: 'saved', entityId, reportId, auditId: audit.auditId, verifiedAt: new Date().toISOString(), signalsSaved: expected.length,
       message: 'Saved to Intelligence OS — report, scores and answers verified in Supabase.' };
   }
+  function storageError(code, message) { return Object.assign(new Error(message), { code }); }
+  async function currentReport(audit, entityId) {
+    const date = audit.completedAt.slice(0,10);
+    const rows = await rest('audit_reports', 'GET', { entity_id: `eq.${entityId}`,
+      select: 'id,entity_id,report_date,report_text', order: 'report_date.desc', limit: '100' });
+    const radar = rows.map(row=>({row,audit:parseReport(row.report_text)}))
+      .filter(item=>item.audit?.companyName===audit.companyName && typeof item.audit.completedAt==='string')
+      .sort((a,b)=>b.audit.completedAt.localeCompare(a.audit.completedAt));
+    if (radar[0]?.audit.completedAt > audit.completedAt) throw storageError('OS_AUDIT_SUPERSEDED',
+      'A newer audit is already saved for this company. Load the saved report instead of replacing it with an older draft.');
+    const companyPerception = row => /AI Perception Audit|Scriptwriter Test Scores/i.test(row.report_text || '');
+    const today = rows.find(row=>row.report_date===date);
+    // Reuse one company perception row, preserving its primary key. Never replace
+    // a website/narrative/person report just because it shares the same entity.
+    let target = radar[0]?.row || rows.find(row=>row.report_date===date && companyPerception(row)) || rows.find(companyPerception);
+    if (today && today.id !== target?.id) {
+      if (companyPerception(today) || parseReport(today.report_text)?.companyName===audit.companyName) target=today;
+      else throw storageError('OS_REPORT_COLLISION',
+        'A different OS report already occupies this company/date. It was left unchanged; this audit has not been saved.');
+    }
+    return target;
+  }
   async function save(audit) {
-    if (locks.has(audit.auditId)) return locks.get(audit.auditId);
-    const work = (async()=> {
+    const lockKey = audit.companyName;
+    const work = (locks.get(lockKey) || Promise.resolve()).catch(()=>{}).then(async()=> {
       const entityId = await entity(audit.companyName, true);
-      // Stable IDs make retries idempotent; never delete or overwrite an earlier audit.
-      await rest('audit_reports', 'POST', { on_conflict: 'id' }, { id: audit.auditId, entity_id: entityId,
-        report_date: audit.completedAt.slice(0,10), report_text: reportText(audit) });
+      const target = await currentReport(audit, entityId);
+      const reportId = target?.id || audit.auditId;
+      const report = { entity_id: entityId, report_date: audit.completedAt.slice(0,10), report_text: reportText(audit) };
+      if (target) {
+        if (target.report_text !== report.report_text || target.report_date !== report.report_date)
+          await rest('audit_reports', 'PATCH', { id: `eq.${reportId}`, entity_id: `eq.${entityId}` }, report);
+      } else await rest('audit_reports', 'POST', { on_conflict: 'id' }, { id: reportId, ...report });
+      // Score records remain keyed to the sampled audit, so retries do not
+      // duplicate scores and existing OS signal history is not destroyed.
       const rows = signalRows(audit, entityId);
       if (rows.length) await rest('signals', 'POST', { on_conflict: 'id' }, rows);
-      return verify(audit, entityId);
-    })();
-    locks.set(audit.auditId, work);
-    try { return await work; } finally { locks.delete(audit.auditId); }
+      return verify(audit, entityId, reportId);
+    });
+    locks.set(lockKey, work);
+    try { return await work; } finally { if (locks.get(lockKey)===work) locks.delete(lockKey); }
   }
   async function latest(companyName) {
     const entityId = await entity(companyName);
     if (!entityId) return null;
     const rows = await rest('audit_reports', 'GET', { entity_id: `eq.${entityId}`, report_text: `like.*<!-- ${MARKER}*`,
-      select: 'id,report_text', order: 'created_at.desc', limit: '20' });
-    const audits = rows.map(r=>parseReport(r.report_text)).filter(a=>a && a.companyName === companyName)
-      .sort((a,b)=>b.completedAt.localeCompare(a.completedAt));
+      select: 'id,report_text', order: 'report_date.desc', limit: '100' });
+    const audits = rows.map(row=>({reportId:row.id,audit:parseReport(row.report_text)}))
+      .filter(item=>item.audit?.companyName===companyName)
+      .sort((a,b)=>b.audit.completedAt.localeCompare(a.audit.completedAt));
     if (!audits[0]) return null;
-    const audit = audits[0];
-    try { return { ...audit, persistence: await verify(audit, entityId) }; }
+    const { audit, reportId } = audits[0];
+    try { return { ...audit, persistence: await verify(audit, entityId, reportId) }; }
     catch { return { ...audit, persistence: { status: 'failed', message: 'Report found in Supabase, but the complete save is not verified. Retry saving to OS.' } }; }
   }
   return { save, latest };

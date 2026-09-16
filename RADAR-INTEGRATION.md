@@ -3,7 +3,7 @@
 Only the existing company AI perception engine is reused. The visibility/Semrush,
 Scriptwriter rewrite and person-legibility routes are unchanged. Calls through
 `/radar/company-audit` disable the legacy destructive replacement routine, then
-save the signed result through the append-only, read-back-verified OS store.
+save the signed result through the read-back-verified OS store.
 
 ## Activation
 
@@ -31,18 +31,21 @@ the five-sentence/120-word limits. Neither evidence nor a long pitch is fabricat
 
 The saver targets the existing Supabase `audit_reports` and `signals` tables.
 The report's hidden markdown footer preserves the complete signed snapshot for
-cross-device loading. **Activation blocker confirmed 2026-09-16:** the existing
-`audit_reports_entity_date` unique constraint rejects a second company report on
-the same day. Do not remove/delete existing reports to bypass it. Database-admin
-access is still needed to resolve this safely and verify durable live storage.
-The radar returns `OS_DAILY_REPORT_LIMIT`, not a false saved receipt.
+cross-device loading. **Owner choice 2026-09-16:** keep one current company AI
+perception report, refreshing that row on reruns instead of creating versions.
+The saver reuses the latest radar row or a recognisable legacy company perception
+report, preserving its primary key. It never replaces unrelated website/narrative/
+person reports or deletes OS records. The existing company/date unique constraint
+is retained; no schema migration is required. Report IDs and sampled audit IDs
+are separate, and both the refreshed report and its scores are read back before
+success is returned. Older-draft retries cannot overwrite a newer saved report.
 Scores use stable
 per-audit IDs and question keys, never response array positions. Only readable
 website benchmarks and fully tested platforms produce scored signal rows;
 unavailable/untested answers and null scores remain in the archived snapshot.
 Both report and signal contents are read back before a saved receipt is returned.
 Failed/partial saves preserve the paid result and can resume without another AI
-call. Existing signals/reports are never deleted or overwritten. Older v1 device
+call. Existing signal history and unrelated reports remain unchanged. Older v1 device
 copies cannot be securely backfilled because their signatures did not cover scores
 or raw answers; those require one rerun. Existing OS records remain unchanged.
 Editable outreach drafts remain device-local, as do temporary unsaved audit copies,
@@ -71,8 +74,8 @@ Company-only requests have explicit timeouts and disable hidden SDK retries;
 Claude can retry one overload response, and an invalid pitch can be rewritten
 once. No paid query is silently rerun when it produces an inconclusive answer.
 Live checks on 2026-09-16 verified grounded OpenAI, Haiku and Sonar answers.
-Gemini's active key still returns depleted prepaid credits despite the reported
-top-up; its grounded completion is pending a positive balance on that key's project.
+After the owner repaired Gemini billing, a live `gemini-3.1-flash-lite` completion
+with Google Search grounding passed on 2026-09-16.
 
 Haiku replaces Opus as company report writer and Sonnet as radar pitch writer.
 There is no premium fallback. New reports identify the tested API models; they do

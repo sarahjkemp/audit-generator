@@ -157,8 +157,8 @@ function registerRadarRoutes({ app, runCompanyAudit, client, withRetry, osStore 
   async function persistAudit(audit) {
     try { return { ...audit, persistence: await osStore.save(audit) }; }
     catch (error) { return { ...audit, persistence: { status: 'failed',
-      code: error.code === 'OS_DAILY_REPORT_LIMIT' ? error.code : undefined,
-      message: error.code === 'OS_DAILY_REPORT_LIMIT' ? error.message : 'Not saved to OS: the complete report and scores could not be verified. Retry saving without rerunning the audit.' } }; }
+      code: ['OS_AUDIT_SUPERSEDED','OS_REPORT_COLLISION'].includes(error.code) ? error.code : undefined,
+      message: ['OS_AUDIT_SUPERSEDED','OS_REPORT_COLLISION'].includes(error.code) ? error.message : 'Not saved to OS: the complete report and scores could not be verified. Retry saving without rerunning the audit.' } }; }
   }
   app.get('/radar/company-audit', async (req, res) => {
     const companyName = req.query.companyName;
@@ -186,7 +186,8 @@ function registerRadarRoutes({ app, runCompanyAudit, client, withRetry, osStore 
       let status = 200, data;
       const capture = { status(code) { status = code; return this; }, json(value) { data = value; } };
       // Exclude private prospecting notes and the legacy destructive OS replacement.
-      // The signed result is saved separately through the verified append-only store.
+      // The signed result refreshes the current company perception report, with
+      // read-back verification and without deleting unrelated OS records.
       await runCompanyAudit({ body: { companyName: companyName.trim(), website, category: req.body.category, notes: '' } }, capture,
         { fileToOS: false, fetchWebsite: fetchPublicPage, radarMode: true });
       if (status !== 200) return res.status(status).json({ error: 'The AI perception audit could not finish. Please try again.' });
