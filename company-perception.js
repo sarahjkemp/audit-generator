@@ -18,6 +18,19 @@ const LABELS = Object.freeze({
 });
 const MODEL_SUMMARY = Object.values(LABELS).join(' · ');
 
+function createCompanyLookup(dependencies) {
+  let sonarQueue = Promise.resolve();
+  return (platform, query) => {
+    const run = () => queryCompanyPlatform({ ...dependencies, platform, query });
+    if (platform !== 'perplexity') return run();
+    // Avoid a six-request burst against Sonar's leaky-bucket rate limit.
+    // Preserve independent questions; never batch or rerun an answer silently.
+    const result = sonarQueue.then(run);
+    sonarQueue = result.then(() => new Promise(resolve => setTimeout(resolve, 1300)));
+    return result;
+  };
+}
+
 async function queryCompanyPlatform({ platform, query, openaiClient, perplexityClient, client,
   withRetry, geminiKey, fetch: request = fetch, onUsage = () => {} }) {
   const input = `${query}\nUse live web search for current public information. Answer concisely in no more than 120 words, with source citations. If the company is ambiguous or evidence is unavailable, say so; do not invent facts.`;
@@ -80,4 +93,4 @@ async function queryCompanyPlatform({ platform, query, openaiClient, perplexityC
   }
 }
 
-module.exports = { MODELS, LABELS, MODEL_SUMMARY, queryCompanyPlatform };
+module.exports = { MODELS, LABELS, MODEL_SUMMARY, queryCompanyPlatform, createCompanyLookup };

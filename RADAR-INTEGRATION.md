@@ -58,6 +58,10 @@ Flash-Lite remains documented as supported, cheaper than 3.5 Flash-Lite. Claude 
 and a 700-token answer ceiling. Sonar retains low search context and a 500-token
 ceiling. Six buyer questions remain independent on each platform; batching them
 into a single prompt would change the audit methodology.
+Sonar's questions run serially with a 1.3-second gap to avoid rate-limit bursts;
+the other platforms still run in parallel. Reports explicitly identify the
+bounded search depth and name-only ambiguity, rather than treating an omitted
+fact as proof of deficient press coverage or a demonstrated sales need.
 
 Company-only requests have explicit timeouts and disable hidden SDK retries;
 Claude can retry one overload response, and an invalid pitch can be rewritten

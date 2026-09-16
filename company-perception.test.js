@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const fs = require('node:fs');
-const { MODELS, MODEL_SUMMARY, queryCompanyPlatform } = require('./company-perception');
+const { MODELS, MODEL_SUMMARY, queryCompanyPlatform, createCompanyLookup } = require('./company-perception');
 
 test('company lookup uses the budget profile, live search and bounded spend', async()=>{
   const requests = [], metrics = [];
@@ -33,7 +33,21 @@ test('budget routing is confined to company perception and the radar pitch',()=>
   const server=fs.readFileSync(require.resolve('./server'),'utf8');
   const company=server.slice(server.indexOf('async function runCompanyAudit'),server.indexOf('// ── Person Legibility Audit'));
   const person=server.slice(server.indexOf('// ── Person Legibility Audit'));
-  assert(company.includes('queryCompanyPlatform({'));assert(company.includes('model: COMPANY_MODELS.report'));
+  assert(company.includes('createCompanyLookup({'));assert(company.includes('model: COMPANY_MODELS.report'));
+  assert(company.includes('SCORABLE PLATFORMS:'));assert(company.includes('not proof of absent indexed content'));
   assert(person.includes('queryPlatform(t.platform'));assert(!person.includes('queryCompanyPlatform'));
   assert.equal(MODELS.report,MODELS.claude);assert.equal(MODELS.pitch,MODELS.claude);
+});
+test('Sonar questions are paced independently without blocking other platforms',async()=>{
+  const order=[];let active=0,maxActive=0;
+  const lookup=createCompanyLookup({
+    perplexityClient:{chat:{completions:{create:async body=>{
+      active++;maxActive=Math.max(maxActive,active);order.push(body.messages[0].content.split('\n')[0]);
+      await new Promise(resolve=>setTimeout(resolve,5));active--;
+      return{choices:[{finish_reason:'stop',message:{content:'A cited Sonar answer.'}}]};
+    }}}},
+    openaiClient:{responses:{create:async()=>{order.push('openai');return{status:'completed',output:[{type:'web_search_call',status:'completed'}],output_text:'A cited OpenAI answer.'};}}},
+  });
+  const answers=await Promise.all([lookup('perplexity','Q1'),lookup('perplexity','Q2'),lookup('chatgpt','Q3')]);
+  assert.equal(maxActive,1);assert.equal(order[0],'openai');assert.deepEqual(order.slice(1),['Q1','Q2']);assert(answers.every(a=>!/^\[/.test(a)));
 });
