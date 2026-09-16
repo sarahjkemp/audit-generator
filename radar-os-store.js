@@ -55,6 +55,14 @@ function createOSStore({ url = process.env.SUPABASE_URL, key = process.env.SUPAB
       body: body === undefined ? undefined : JSON.stringify(body) });
     if (!response.ok) {
       console.warn('[Radar OS] Database operation failed', table, method, response.status);
+      if (table === 'audit_reports' && response.status === 409) {
+        const data = await response.json().catch(() => ({}));
+        if (data.code === '23505' && /audit_reports_entity_date/.test(data.message || '')) {
+          const error = new Error('Your OS currently allows one report per company per day. A Supabase schema update is required to preserve and save additional same-day audits. This paid result is retained; do not rerun it.');
+          error.code = 'OS_DAILY_REPORT_LIMIT';
+          throw error;
+        }
+      }
       throw new Error('Supabase could not complete the save or verification.');
     }
     return response.json();

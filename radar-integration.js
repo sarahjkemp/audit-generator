@@ -155,7 +155,9 @@ function registerRadarRoutes({ app, runCompanyAudit, client, withRetry, osStore 
     && equalSecret(audit.signature, signature(audit, process.env.RADAR_INTEGRATION_TOKEN));
   async function persistAudit(audit) {
     try { return { ...audit, persistence: await osStore.save(audit) }; }
-    catch (_error) { return { ...audit, persistence: { status: 'failed', message: 'Not saved to OS: the complete report and scores could not be verified. Retry saving without rerunning the audit.' } }; }
+    catch (error) { return { ...audit, persistence: { status: 'failed',
+      code: error.code === 'OS_DAILY_REPORT_LIMIT' ? error.code : undefined,
+      message: error.code === 'OS_DAILY_REPORT_LIMIT' ? error.message : 'Not saved to OS: the complete report and scores could not be verified. Retry saving without rerunning the audit.' } }; }
   }
   app.get('/radar/company-audit', async (req, res) => {
     const companyName = req.query.companyName;

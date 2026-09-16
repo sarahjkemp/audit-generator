@@ -65,3 +65,13 @@ test('a partial database write is never reported as complete and can be resumed'
   db.failSignals(false);assert.equal((await store.save(audit)).status,'saved');
   db.hideSignal(true);assert.equal((await store.latest('Example')).persistence.status,'failed');
 });
+test('a same-day OS constraint is reported without replacing an existing report',async()=>{
+  const db=database(), audit=fixture();
+  const store=createOSStore({url:'https://db.supabase.co',key:'sb_publishable_test',fetch:async(url,init)=>{
+    if(new URL(url).pathname.endsWith('/audit_reports') && init.method==='POST') return Response.json({code:'23505',message:'duplicate key value violates unique constraint "audit_reports_entity_date"'},{status:409});
+    return db.fetch(url,init);
+  }});
+  await assert.rejects(()=>store.save(audit),error=>error.code==='OS_DAILY_REPORT_LIMIT' && /do not rerun/.test(error.message));
+  assert.equal(db.tables.audit_reports[0].report_text,'Existing report');
+  assert.equal(db.tables.signals.length,1);
+});
