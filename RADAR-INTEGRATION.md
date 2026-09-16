@@ -24,6 +24,10 @@ altered results, inaccessible ground truth, mismatched company identities and
 audits with no complete platform. AI errors do not become low business scores.
 Generated drafts require an exact audit evidence excerpt and are limited to five
 sentences and 120 words; overlong output is rewritten once, not blindly truncated.
+For reliable budget-model drafting, the prompt targets three short sentences and
+66 words. It supplies bounded, numbered excerpts rather than a full report; the
+server maps the chosen excerpt index back to literal audit text and still checks
+the five-sentence/120-word limits. Neither evidence nor a long pitch is fabricated.
 
 The saver targets the existing Supabase `audit_reports` and `signals` tables.
 The report's hidden markdown footer preserves the complete signed snapshot for

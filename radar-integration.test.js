@@ -83,3 +83,21 @@ test('a database failure preserves the paid audit and retry does not call AI aga
   await routes['/radar/save-audit']({ body:{audit:first.body} }, retry);
   assert.equal(retry.body.persistence.status,'saved'); assert.equal(aiCalls,1);
 });
+
+test('the budget pitch maps evidence indices to real report excerpts and rejects invalid indices',async()=>{
+  const previous=process.env.RADAR_INTEGRATION_TOKEN;
+  process.env.RADAR_INTEGRATION_TOKEN='b'.repeat(64);
+  try{
+    const routes={};let index=0;
+    registerRadarRoutes({app:{use(){},get(p,f){routes[p]=f;},post(p,f){routes[p]=f;}},runCompanyAudit(){},osStore:{},withRetry:f=>f(),
+      client:{messages:{create:async body=>{
+        assert.equal(body.model,'claude-haiku-4-5-20251001');assert(body.messages[0].content.includes('Exactly THREE sentences'));
+        return{stop_reason:'end_turn',content:[{type:'text',text:JSON.stringify({sentences:['I noticed your Series B raise.','The dated audit captured your customer problem accurately.','Would it help if I shared the findings?'],evidenceIndex:index})}]};
+      }}}});
+    const audit=normalizeAudit(auditData(),'Example','https://example.com/',process.env.RADAR_INTEGRATION_TOKEN);
+    const req={body:{audit,prospect:{company:'Example',source:'https://example.com/news'}}};
+    const valid=response();await routes['/radar/linkedin-pitch'](req,valid);
+    assert.equal(valid.code,200);assert.equal(valid.body.sentenceCount,3);assert.equal(valid.body.evidenceQuote,audit.report);
+    index=10000;const invalid=response();await routes['/radar/linkedin-pitch'](req,invalid);assert.equal(invalid.code,502);
+  }finally{if(previous===undefined)delete process.env.RADAR_INTEGRATION_TOKEN;else process.env.RADAR_INTEGRATION_TOKEN=previous;}
+});
