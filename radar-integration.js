@@ -3,6 +3,7 @@
 const crypto = require('node:crypto');
 const dns = require('node:dns/promises');
 const net = require('node:net');
+const { createOSStore } = require('./radar-os-store');
 
 const PLATFORM_KEYS = ['chatgpt', 'claude', 'gemini', 'perplexity'];
 const DIMENSIONS = ['Clarity', 'Accuracy', 'Differentiation', 'Customer pain point', 'Proof / credibility', 'Category fit'];
@@ -84,6 +85,10 @@ async function fetchPublicPage(website, maxChars = 6000, dependencies = {}) {
 }
 
 function signingPayload(audit) {
+  if (audit.schemaVersion === 2) return JSON.stringify({ schemaVersion: 2, auditId: audit.auditId,
+    companyName: audit.companyName, website: audit.website, report: audit.report, completedAt: audit.completedAt,
+    benchmarkAccessible: audit.benchmarkAccessible, platformStatus: audit.platformStatus,
+    scores: audit.scores, rawResponses: audit.rawResponses, platformProblems: audit.platformProblems });
   return JSON.stringify({ companyName: audit.companyName, website: audit.website,
     report: audit.report, completedAt: audit.completedAt,
     benchmarkAccessible: audit.benchmarkAccessible, platformStatus: audit.platformStatus });
@@ -102,23 +107,22 @@ function normalizeAudit(data, companyName, website, token) {
   if (typeof data.report !== 'string' || !data.report.trim() || data.report.length > 60000) {
     throw new Error('The audit returned no usable report.');
   }
-  const platformStatus = {}, scores = {};
+  const platformStatus = {}, scores = {}, platformProblems = {};
   for (const platform of PLATFORM_KEYS) {
     const answers = Object.values(data.rawResponses?.[platform] || {});
     const count = answers.filter(a => typeof a === 'string' && a.trim() && !/^\s*\[/.test(a)).length;
     platformStatus[platform] = count === 6 ? 'complete' : count ? 'partial' : 'unavailable';
+    platformProblems[platform] = [...new Set(answers.filter(a=>typeof a === 'string' && /^\s*\[/.test(a)))]
+      .map(a=>a.replace(/(?:sk-[A-Za-z0-9_-]+|AIza[A-Za-z0-9_-]+)/g, '[credential redacted]').slice(0,1500));
     const key = platform === 'chatgpt' ? 'openai' : platform;
     scores[key] = Object.fromEntries(DIMENSIONS.map(d => {
       const s = data.scores?.[key]?.[d];
       return [d, count === 6 && data.benchmarkAccessible === true && Number.isInteger(s) && s >= 1 && s <= 5 ? s : null];
     }));
   }
-  if (Object.values(platformStatus).every(s => s === 'unavailable')) {
-    throw new Error('All AI platforms were unavailable. No perception finding has been recorded.');
-  }
-  const audit = { companyName, website, completedAt: new Date().toISOString(),
+  const audit = { schemaVersion: 2, auditId: crypto.randomUUID(), companyName, website, completedAt: new Date().toISOString(),
     report: data.report, rawResponses: data.rawResponses, scores,
-    platformStatus, benchmarkAccessible: data.benchmarkAccessible === true };
+    platformStatus, platformProblems, benchmarkAccessible: data.benchmarkAccessible === true };
   return { ...audit, signature: signature(audit, token) };
 }
 
@@ -135,7 +139,7 @@ function validatePitch(data, auditReport) {
   return { pitch, sentenceCount: count, evidenceQuote: data.evidenceQuote };
 }
 
-function registerRadarRoutes({ app, runCompanyAudit, client, withRetry }) {
+function registerRadarRoutes({ app, runCompanyAudit, client, withRetry, osStore = createOSStore() }) {
   let auditRunning = false, pitchRunning = false;
   app.use('/radar', (req, res, next) => {
     res.set('Cache-Control', 'no-store');
@@ -144,8 +148,28 @@ function registerRadarRoutes({ app, runCompanyAudit, client, withRetry }) {
     if (!equalSecret(req.get('Authorization'), `Bearer ${token}`)) return res.status(401).json({ error: 'Unauthorized radar connection.' });
     next();
   });
-  app.get('/radar/health', (_req, res) => res.json({ ready: true, version: 1,
-    features: ['ai-perception-audit', 'linkedin-pitch'] }));
+  app.get('/radar/health', (_req, res) => res.json({ ready: true, version: 2,
+    features: ['ai-perception-audit', 'linkedin-pitch', 'supabase-audit-storage'] }));
+  const validSnapshot = audit => audit?.schemaVersion === 2 && /^[a-f0-9-]{36}$/.test(audit.auditId || '')
+    && typeof audit.report === 'string' && audit.report.length <= 60000
+    && equalSecret(audit.signature, signature(audit, process.env.RADAR_INTEGRATION_TOKEN));
+  async function persistAudit(audit) {
+    try { return { ...audit, persistence: await osStore.save(audit) }; }
+    catch (_error) { return { ...audit, persistence: { status: 'failed', message: 'Not saved to OS: the complete report and scores could not be verified. Retry saving without rerunning the audit.' } }; }
+  }
+  app.get('/radar/company-audit', async (req, res) => {
+    const companyName = req.query.companyName;
+    if (typeof companyName !== 'string' || !companyName.trim() || companyName.length > 160) return res.status(400).json({ error: 'A company name is required.' });
+    try {
+      const audit = await osStore.latest(companyName.trim());
+      if (audit && !validSnapshot(audit)) return res.status(502).json({ error: 'The stored audit could not be verified.' });
+      return res.json({ audit });
+    } catch (_error) { return res.status(503).json({ error: 'Could not load the saved audit from Supabase. Any device-only draft is not a verified OS record.' }); }
+  });
+  app.post('/radar/save-audit', async (req, res) => {
+    if (!validSnapshot(req.body.audit)) return res.status(400).json({ error: 'This snapshot cannot be verified for OS saving. Older device-only audits need to be rerun once.' });
+    return res.json(await persistAudit(req.body.audit));
+  });
   app.post('/radar/company-audit', async (req, res) => {
     if (auditRunning) return res.status(429).json({ error: 'An audit is already running. Please wait for it to finish.' });
     let website, companyName;
@@ -156,15 +180,15 @@ function registerRadarRoutes({ app, runCompanyAudit, client, withRetry }) {
     } catch (error) { return res.status(400).json({ error: error.message }); }
     auditRunning = true;
     try {
-      let status = 200;
-      const capture = { status(code) { status = code; return this; }, json(data) {
-        if (status !== 200) return res.status(status).json({ error: 'The AI perception audit could not finish. Please try again.' });
-        try { return res.json(normalizeAudit(data, companyName.trim(), website, process.env.RADAR_INTEGRATION_TOKEN)); }
-        catch (error) { return res.status(502).json({ error: error.message }); }
-      }};
-      // Intentionally exclude all private radar notes, funding hypotheses and OS filing.
+      let status = 200, data;
+      const capture = { status(code) { status = code; return this; }, json(value) { data = value; } };
+      // Exclude private prospecting notes and the legacy destructive OS replacement.
+      // The signed result is saved separately through the verified append-only store.
       await runCompanyAudit({ body: { companyName: companyName.trim(), website, category: req.body.category, notes: '' } }, capture,
         { fileToOS: false, fetchWebsite: fetchPublicPage, radarMode: true });
+      if (status !== 200) return res.status(status).json({ error: 'The AI perception audit could not finish. Please try again.' });
+      const audit = normalizeAudit(data, companyName.trim(), website, process.env.RADAR_INTEGRATION_TOKEN);
+      return res.json(await persistAudit(audit));
     } catch (_error) { if (!res.headersSent) res.status(502).json({ error: 'The AI perception audit could not finish.' }); }
     finally { auditRunning = false; }
   });

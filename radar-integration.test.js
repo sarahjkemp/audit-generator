@@ -41,7 +41,7 @@ test('pitch validation requires literal audit evidence and enforces five sentenc
   assert.throws(() => validatePitch({ sentences: ['A short draft.'], evidenceQuote: 'An invented weakness.' }, report));
 });
 
-test('radar is authenticated, never files to OS, and rejects a tampered audit', async () => {
+test('radar saves through the verified store, never uses destructive filing, and rejects tampering', async () => {
   const previous = process.env.RADAR_INTEGRATION_TOKEN;
   process.env.RADAR_INTEGRATION_TOKEN = 'a'.repeat(64);
   try {
@@ -50,15 +50,36 @@ test('radar is authenticated, never files to OS, and rejects a tampered audit', 
       runCompanyAudit: async (req, res, options) => {
         assert.equal(options.fileToOS, false); assert.equal(options.radarMode, true); assert.equal(req.body.notes, '');
         return res.json(auditData());
-      }, client: { messages: { create() { throw new Error('No live AI call in tests'); } } }, withRetry: f => f() });
+      }, osStore: { save: async audit => ({ status: 'saved', auditId: audit.auditId, signalsSaved: 4 }), latest: async()=>null },
+      client: { messages: { create() { throw new Error('No live AI call in tests'); } } }, withRetry: f => f() });
     const unauthorized = response(); middleware[0]({ get: () => 'Bearer wrong' }, unauthorized, () => assert.fail('Must not authorize'));
     assert.equal(unauthorized.code, 401);
     const auditResponse = response();
     await routes['/radar/company-audit']({ body: { companyName: 'Example', website: 'https://example.com/', notes: 'Private note must not be sent' } }, auditResponse);
     assert.equal(auditResponse.code, 200); assert.equal(auditResponse.body.companyName, 'Example');
+    assert.equal(auditResponse.body.persistence.status, 'saved');
+    const badScores = { ...auditResponse.body, scores: { openai: { Clarity: 1 } } };
+    const saveResponse = response();
+    await routes['/radar/save-audit']({ body: { audit: badScores } }, saveResponse);
+    assert.equal(saveResponse.code, 400);
     const tampered = { ...auditResponse.body, report: 'Invented report' };
     const pitchResponse = response();
     await routes['/radar/linkedin-pitch']({ body: { audit: tampered, prospect: { company: 'Example', source: 'https://example.com/news' } } }, pitchResponse);
     assert.equal(pitchResponse.code, 400);
   } finally { if (previous === undefined) delete process.env.RADAR_INTEGRATION_TOKEN; else process.env.RADAR_INTEGRATION_TOKEN = previous; }
+});
+
+test('a database failure preserves the paid audit and retry does not call AI again', async () => {
+  process.env.RADAR_INTEGRATION_TOKEN = 'a'.repeat(64);
+  const routes = {}; let aiCalls = 0, saveCalls = 0;
+  registerRadarRoutes({ app: { use() {}, get(p,f){routes[p]=f;}, post(p,f){routes[p]=f;} },
+    runCompanyAudit: async (_req,res)=>{ aiCalls++; res.json(auditData()); },
+    osStore: { async save(){ if (++saveCalls === 1) throw new Error('DB down'); return { status:'saved' }; }, latest:async()=>null },
+    client:{}, withRetry:f=>f() });
+  const first = response();
+  await routes['/radar/company-audit']({ body:{companyName:'Example',website:'https://example.com/'} }, first);
+  assert.equal(first.code,200); assert.equal(first.body.persistence.status,'failed'); assert.ok(first.body.report);
+  const retry = response();
+  await routes['/radar/save-audit']({ body:{audit:first.body} }, retry);
+  assert.equal(retry.body.persistence.status,'saved'); assert.equal(aiCalls,1);
 });
