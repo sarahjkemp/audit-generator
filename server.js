@@ -933,7 +933,7 @@ app.post('/company-audit', (req, res) => runCompanyAudit(req, res));
 
 // The radar uses only the company perception engine, never the other audit sections
 // or the Intelligence OS filing/replacement workflow. Existing audit routes stay intact.
-require('./radar-integration').registerRadarRoutes({ app, runCompanyAudit, client, withRetry });
+require('./radar-integration').registerRadarRoutes({ app, runCompanyAudit, client, openaiClient, withRetry });
 
 // ── Person Legibility Audit ──────────────────────────────────────────────────
 

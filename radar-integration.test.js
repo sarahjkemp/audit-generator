@@ -109,18 +109,25 @@ test('the budget pitch maps evidence indices to real report excerpts and rejects
   const previous=process.env.RADAR_INTEGRATION_TOKEN;
   process.env.RADAR_INTEGRATION_TOKEN='b'.repeat(64);
   try{
-    const routes={};let index=0;
+    const routes={};let index=0, recipientQuote='';
     registerRadarRoutes({app:{use(){},get(p,f){routes[p]=f;},post(p,f){routes[p]=f;}},runCompanyAudit(){},osStore:{},withRetry:f=>f(),
-      client:{messages:{create:async body=>{
-        assert.equal(body.model,'claude-haiku-4-5-20251001');assert(body.system.includes('exactly FIVE complete sentences'));
-        assert(body.system.includes('NAME ONLY'));assert.equal(body.tool_choice.name,'draft_linkedin_pitch');
-        return{stop_reason:'tool_use',content:[{type:'tool_use',name:'draft_linkedin_pitch',input:{sentences:["I ran Example through a test I've developed and the dated answers captured your customer problem accurately.",'That could help prospective customers understand your role.','My work connects positioning with machine understanding.','The website and sampled answers reflect a clear proposition.','Happy to share the findings if useful.'],evidenceIndex:index}}]};
+      openaiClient:{responses:{create:async body=>{
+        assert.equal(body.model,'gpt-5.6-luna');assert(body.instructions.includes('FIRST PERSON'));
+        assert(body.instructions.includes('NAME ONLY'));assert.equal(body.text.format.strict,true);assert.equal(body.store,false);assert.equal(body.tools,undefined);
+        return{status:'completed',output_text:JSON.stringify({finding:'the answers captured your customer problem accurately',commercial:'That could help prospective customers understand your role.',connection:recipientQuote?`Your point about ${recipientQuote} connects with my work on machine understanding.`:'My work connects positioning with machine understanding.',contrast:'The website and sampled answers reflect a clear proposition.',recipientQuote,evidenceIndex:index})};
       }}}});
     const audit=normalizeAudit(auditData(),'Example','https://example.com/',process.env.RADAR_INTEGRATION_TOKEN);
     const req={body:{audit,prospect:{company:'Example',source:'https://example.com/news'}}};
     const valid=response();await routes['/radar/linkedin-pitch'](req,valid);
     assert.equal(valid.code,200);assert.equal(valid.body.sentenceCount,5);assert.equal(valid.body.evidenceQuote,audit.report);
     assert.equal(valid.body.draftVersion,2);assert.deepEqual(valid.body.recipient,{name:'',context:''});
+    assert.match(valid.body.pitch,/Hi \[Name\], I ran Example through a test I've developed/);
+    const personalReq={body:{...req.body,recipient:{name:'Jo',context:'She cares about how companies are understood.'}}};
+    const missing=response();await routes['/radar/linkedin-pitch'](personalReq,missing);assert.equal(missing.code,502);
+    recipientQuote='how companies are understood';
+    const personal=response();await routes['/radar/linkedin-pitch'](personalReq,personal);assert.equal(personal.code,200);
+    assert.match(personal.body.pitch,/^Hi Jo,/);assert(personal.body.pitch.includes(recipientQuote));
+    recipientQuote='';
     index=10000;const invalid=response();await routes['/radar/linkedin-pitch'](req,invalid);assert.equal(invalid.code,502);
   }finally{if(previous===undefined)delete process.env.RADAR_INTEGRATION_TOKEN;else process.env.RADAR_INTEGRATION_TOKEN=previous;}
 });

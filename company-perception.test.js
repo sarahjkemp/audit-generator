@@ -36,7 +36,7 @@ test('budget routing is confined to company perception and the radar pitch',()=>
   assert(company.includes('createCompanyLookup({'));assert(company.includes('model: COMPANY_MODELS.report'));
   assert(company.includes('SCORABLE PLATFORMS:'));assert(company.includes('not proof of absent indexed content'));
   assert(person.includes('queryPlatform(t.platform'));assert(!person.includes('queryCompanyPlatform'));
-  assert.equal(MODELS.report,MODELS.claude);assert.equal(MODELS.pitch,MODELS.claude);
+  assert.equal(MODELS.report,MODELS.claude);assert.equal(MODELS.pitch,MODELS.chatgpt);
 });
 test('Sonar questions are paced independently without blocking other platforms',async()=>{
   const order=[];let active=0,maxActive=0;

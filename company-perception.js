@@ -8,7 +8,7 @@ const MODELS = Object.freeze({
   claude: 'claude-haiku-4-5-20251001',
   perplexity: 'sonar',
   report: 'claude-haiku-4-5-20251001',
-  pitch: 'claude-haiku-4-5-20251001',
+  pitch: 'gpt-5.6-luna',
 });
 const LABELS = Object.freeze({
   chatgpt: `OpenAI (${MODELS.chatgpt} + web search)`,

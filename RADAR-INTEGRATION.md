@@ -35,8 +35,13 @@ Bounded numbered company-description excerpts, website proof quotes and all comp
 signed v2 answer sets support the draft; speculative report analysis is excluded.
 Actual answers override report speculation. Namesake ambiguity is not automatically
 failure to identify a company, and name-only questions never imply a URL was supplied.
-The server requires five real sentences, the correct greeting and a valid literal
-evidence index. No premium-model fallback or additional web queries are introduced.
+The server assembles the greeting, test introduction, date and invitation around
+four model-written parts. It requires five real sentences, a valid literal evidence
+index, and a verbatim context excerpt in the connection sentence when supplied.
+It rejects third-person self-description and aggregate platform-count claims.
+Company/founder growth facts cannot be assumed to be recipient facts; editorial fit
+and communications-gap fields are excluded from factual drafting input.
+No premium-model fallback or additional web queries are introduced.
 Old-format drafts and drafts with changed recipient details need regeneration.
 
 The saver targets the existing Supabase `audit_reports` and `signals` tables.
@@ -87,7 +92,10 @@ Live checks on 2026-09-16 verified grounded OpenAI, Haiku and Sonar answers.
 After the owner repaired Gemini billing, a live `gemini-3.1-flash-lite` completion
 with Google Search grounding passed on 2026-09-16.
 
-Haiku replaces Opus as company report writer and Sonnet as radar pitch writer.
+Haiku replaces Opus as company report writer. The radar pitch writer uses the
+already-configured `gpt-5.6-luna` OpenAI client, strict structured output, reasoning
+effort `none`, a 1,400-token cap, `store: false`, no web tools and no hidden SDK
+retries. This avoids additional paid research and uses the signed audit evidence.
 There is no premium fallback. New reports identify the tested API models; they do
 not claim to reproduce the consumer ChatGPT/Gemini/Claude apps. Grounding failures
 and truncated responses are untested, not business weaknesses. The shared legacy
