@@ -27,14 +27,15 @@ app.use(express.json());
 
 // ── Intelligence OS / Supabase integration ───────────────────────────────────
 const SB_URL = process.env.SUPABASE_URL       || '';
-const SB_KEY = process.env.SUPABASE_ANON_KEY  || '';
+const SB_KEY = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_ANON_KEY || '';
 
 async function sbRequest(method, path, body) {
   if (!SB_URL || !SB_KEY) return null;
   const r = await fetch(`${SB_URL}/rest/v1/${path}`, {
     method,
     headers: {
-      apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`,
+      apikey: SB_KEY,
+      ...(SB_KEY.startsWith('eyJ') ? { Authorization: `Bearer ${SB_KEY}` } : {}),
       'Content-Type': 'application/json', Prefer: 'return=representation',
     },
     body: body ? JSON.stringify(body) : undefined,
